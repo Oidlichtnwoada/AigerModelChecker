@@ -21,7 +21,7 @@ RCOBJS     = $(addsuffix r,  $(COBJS))
 
 
 CXX       ?= g++
-CFLAGS    ?= -Wall -Wno-parentheses
+CFLAGS    ?= -Wall -Wno-parentheses -fpermissive
 LFLAGS    ?= -Wall
 
 COPTIMIZE ?= -O3
