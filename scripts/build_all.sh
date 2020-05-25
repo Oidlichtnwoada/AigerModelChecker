@@ -1,4 +1,5 @@
 #!/bin/bash
-export MROOT=/media/sf_OneDrive/TU/2020S_Semester/Computer-Aided_Verification_UE/minisat
-cd minisat/core
-make -q
+cd ../picosat && ./configure && make clean && ./configure && make
+cd ../aiger && ./configure && make clean && ./configure && make
+cd ../minisat/core && make clean && make
+cd ../simp && make clean && make

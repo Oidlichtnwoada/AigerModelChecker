@@ -1,1 +1,4 @@
-
+*.o
+depend.mk
+minisat_core
+minisat_simp

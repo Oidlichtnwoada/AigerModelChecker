@@ -1,4 +1,4 @@
-EXEC      = minisat
+EXEC      = minisat_simp
 DEPDIR    = mtl utils core
 
-include $(MROOT)/mtl/template.mk
+include ../mtl/template.mk

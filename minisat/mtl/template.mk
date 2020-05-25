@@ -5,6 +5,8 @@
 ##        "make d"  for a debug version (no optimizations).
 ##        "make"    for the standard version (optimized, but with debug information and assertions active)
 
+MROOT      = ..
+
 PWD        = $(shell pwd)
 EXEC      ?= $(notdir $(PWD))
 
