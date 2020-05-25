@@ -2,3 +2,6 @@
 depend.mk
 minisat_core
 minisat_simp
+dimacs.txt
+*.aag
+__pycache__
