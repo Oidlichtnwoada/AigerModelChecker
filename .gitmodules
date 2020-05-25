@@ -1,0 +1,6 @@
+[submodule "aiger"]
+	path = aiger
+	url = https://github.com/zimmski/aiger.git
+[submodule "picosat"]
+	path = picosat
+	url = https://github.com/zimmski/picosat.git
