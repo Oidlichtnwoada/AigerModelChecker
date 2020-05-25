@@ -1,6 +1,8 @@
 [submodule "aiger"]
 	path = aiger
 	url = https://github.com/zimmski/aiger.git
+	ignore = dirty
 [submodule "picosat"]
 	path = picosat
 	url = https://github.com/zimmski/picosat.git
+	ignore = dirty
