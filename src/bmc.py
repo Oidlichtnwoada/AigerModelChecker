@@ -13,9 +13,7 @@ class BoundedModelChecker:
         self.model = parser.parse()
         if not interpolation:
             generator = Generator(self.model, bound)
-            self.clauses = generator.generate()
-            with open('../dimacs/dimacs.txt', 'w') as file:
-                file.write(self.clauses)
+            generator.generate()
             output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
             if 'UNSATISFIABLE' in output:
                 print('OK')

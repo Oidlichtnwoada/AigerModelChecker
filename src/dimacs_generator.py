@@ -11,8 +11,7 @@ class Generator:
         # remove constants from formula
         self.remove_constants(formula)
         clauses = self.generate_clauses(formula)
-        dimacs = self.build_dimacs(clauses)
-        return dimacs
+        self.build_dimacs(clauses)
 
     # convert a single literal string to a literal object
     @staticmethod
@@ -185,20 +184,21 @@ class Generator:
     def generate_clauses(self, formula):
         if formula.__class__ == Literal:
             if formula == Literal.false():
-                return {('-1', ), ('1', )}
+                return {('-1',), ('1',)}
             elif formula == Literal.true():
-                return {('1', )}
+                return {('1',)}
         else:
             self.add_labels(formula)
-            clauses = {(self.convert_to_string_literal(formula.label, False), )}
+            clauses = {(self.convert_to_string_literal(formula.label, False),)}
             self.add_equivalences(formula, clauses)
             return clauses
 
     # generate the dimacs string
     def build_dimacs(self, clauses):
-        dimacs = f'p cnf {self.model.label_running_index} {len(clauses)}\n'
-        dimacs += '\n'.join([f'{" ".join(clause)} 0' for clause in clauses])
-        return dimacs
+        with open('../dimacs/dimacs.txt', 'w') as file:
+            file.write(f'p cnf {self.model.label_running_index} {len(clauses)}\n')
+            for clause in clauses:
+                file.write(f'{" ".join(clause)} 0\n')
 
     # label all internal nodes in the syntax tree of the formula
     def add_labels(self, formula):
