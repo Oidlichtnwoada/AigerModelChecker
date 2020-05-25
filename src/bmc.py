@@ -1,4 +1,4 @@
-from subprocess import run
+from subprocess import run, PIPE
 from sys import argv
 
 from aiger_parser import Parser
@@ -16,11 +16,11 @@ class BoundedModelChecker:
             self.clauses = generator.generate()
             with open('../dimacs/dimacs.txt', 'w') as file:
                 file.write(self.clauses)
-            output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], capture_output=True).stdout.decode('ascii')
-            if 'SATISFIABLE' in output:
-                print('FAIL')
-            else:
+            output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
+            if 'UNSATISFIABLE' in output:
                 print('OK')
+            else:
+                print('FAIL')
         else:
             pass
 

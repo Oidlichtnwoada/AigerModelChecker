@@ -4,6 +4,8 @@
       <w>aiger</w>
       <w>dimacs</w>
       <w>minisat</w>
+      <w>tseitin</w>
+      <w>unallowed</w>
     </words>
   </dictionary>
 </component>

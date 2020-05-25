@@ -19,35 +19,32 @@ class Generator:
     def convert_to_literal_object(literal):
         sign = -1 if bool(literal % 2) else 1
         # add 1 because constants were added at index 1
-        index = literal // 2 + 1
+        index = (literal // 2) + 1
         return Literal(index * sign, None)
 
     # construct a string literal from a literal object
-    def convert_to_string_literal(self, literal):
-        sign = -1 if literal < 0 else 1
-        literal = abs(literal)
-        index = literal % self.model.maximum_variable_index
-        step = literal // self.model.maximum_variable_index
-        return str((index + step * self.model.maximum_variable_index) * sign)
+    @staticmethod
+    def convert_to_string_literal(literal, negated):
+        literal = literal.literal * -1 if negated else literal.literal
+        return str(literal)
 
     # change the list structure to hash maps to speed up searching
     def preprocess(self):
         inputs = {}
         for index, inp in enumerate(self.model.inputs):
-            inputs[index] = Generator.convert_to_literal_object(inp)
+            inputs[index] = self.convert_to_literal_object(inp)
         self.model.inputs = inputs
         latches = {}
         for out, inp in self.model.latches:
-            latches[Generator.convert_to_literal_object(out)] = Generator.convert_to_literal_object(inp)
+            latches[self.convert_to_literal_object(out)] = self.convert_to_literal_object(inp)
         self.model.latches = latches
         outputs = {}
         for index, out in enumerate(self.model.outputs):
-            outputs[index] = Generator.convert_to_literal_object(out)
+            outputs[index] = self.convert_to_literal_object(out)
         self.model.outputs = outputs
         and_gates = {}
         for out, inp_0, inp_1 in self.model.and_gates:
-            and_gates[Generator.convert_to_literal_object(out)] = (
-                Generator.convert_to_literal_object(inp_0), Generator.convert_to_literal_object(inp_1))
+            and_gates[self.convert_to_literal_object(out)] = (self.convert_to_literal_object(inp_0), self.convert_to_literal_object(inp_1))
         self.model.and_gates = and_gates
         self.model.positive_allowed_literals = set(list(self.model.inputs.values()) + list(self.model.latches.keys()) + Literal.get_constants())
         self.model.negative_allowed_literals = set([x.get_negated_copy() for x in self.model.positive_allowed_literals])
@@ -55,6 +52,7 @@ class Generator:
         # add 1 because constants were added at index 1
         self.model.maximum_variable_index += 1
         self.model.label_start_index = self.model.maximum_variable_index * (self.bound + 1)
+        self.model.label_running_index = self.model.label_start_index
 
     # build equivalence out of OR, AND and NEGATION
     @staticmethod
@@ -63,7 +61,7 @@ class Generator:
         neg_arg_1 = arg_1.get_negated_copy()
         return Or(And(arg_0, arg_1), And(neg_arg_0, neg_arg_1))
 
-    # build up the initial state formula to guarantee all latches are initialized to zero
+    # build up the initial state formula to guarantee that all latches are initialized to zero
     def initial(self):
         formula = Literal.true()
         for out in self.model.latches:
@@ -83,12 +81,13 @@ class Generator:
     # increments the steps of literals in a formula
     def increment_steps(self, formula, steps):
         if formula.__class__ == Literal:
-            if formula not in Literal.get_constants():
+            literal = formula
+            if literal not in Literal.get_constants():
                 value = self.model.maximum_variable_index * steps
-                if formula.literal < 0:
-                    formula.literal -= value
+                if literal.literal < 0:
+                    literal.literal -= value
                 else:
-                    formula.literal += value
+                    literal.literal += value
         else:
             self.increment_steps(formula.first_argument, steps)
             self.increment_steps(formula.second_argument, steps)
@@ -110,7 +109,7 @@ class Generator:
             next_step_out = out.get_copy()
             self.increment_steps(next_step_out, 1)
             prev_step_in = self.replace_with_allowed_literals(self.model.latches[out].get_copy())
-            transition = Generator.get_equivalence_formula(next_step_out, prev_step_in)
+            transition = self.get_equivalence_formula(next_step_out, prev_step_in)
             formula = And(formula, transition)
         return formula
 
@@ -118,95 +117,101 @@ class Generator:
     def replace_with_allowed_literals(self, formula):
         formula = And(Literal.true(), formula)
         while True:
-            unallowed_literal, first_argument = self.find_literal_in_formula(formula, self.model.allowed_literals, False)
-            if unallowed_literal is None:
+            unallowed_literals = []
+            self.find_literals_in_formula(formula, self.model.allowed_literals, False, unallowed_literals)
+            if len(unallowed_literals) == 0:
                 break
             else:
-                if unallowed_literal in self.model.and_gates:
-                    inp_0, inp_1 = map(Literal.get_copy, self.model.and_gates[unallowed_literal])
-                    replacement_formula = And(inp_0, inp_1)
-                else:
-                    inp_0, inp_1 = map(Literal.get_copy, self.model.and_gates[unallowed_literal.get_negated_copy()])
-                    replacement_formula = And(inp_0, inp_1).get_negated_copy()
-                replacement_formula.parent = unallowed_literal.parent
-                if first_argument:
-                    replacement_formula.parent.first_argument = replacement_formula
-                else:
-                    replacement_formula.parent.second_argument = replacement_formula
-        return formula
-
-    # simplify formula by removing constants
-    @staticmethod
-    def remove_constants(formula):
-        while True:
-            constant, first_argument = Generator.find_literal_in_formula(formula, Literal.get_constants(), True)
-            if constant is None:
-                break
-            else:
-                replacement_formula = None
-                if constant.parent is None:
-                    break
-                if constant == Literal.true():
-                    if constant.parent.__class__ == And:
-                        replacement_formula = constant.parent.second_argument if first_argument else constant.parent.first_argument
-                    elif constant.parent.__class__ == Or:
-                        replacement_formula = Literal.true()
-                elif constant == Literal.false():
-                    if constant.parent.__class__ == And:
-                        replacement_formula = Literal.false()
-                    elif constant.parent.__class__ == Or:
-                        replacement_formula = constant.parent.second_argument if first_argument else constant.parent.first_argument
-                replacement_formula.parent = constant.parent.parent
-                if replacement_formula.parent is None:
-                    formula = replacement_formula
-                else:
-                    if replacement_formula.parent.first_argument.__class__ in [And, Or] and replacement_formula.parent.first_argument == constant.parent:
+                for unallowed_literal, first_argument in unallowed_literals:
+                    if unallowed_literal in self.model.and_gates:
+                        inp_0, inp_1 = map(Literal.get_copy, self.model.and_gates[unallowed_literal])
+                        replacement_formula = And(inp_0, inp_1)
+                    else:
+                        inp_0, inp_1 = map(Literal.get_copy, self.model.and_gates[unallowed_literal.get_negated_copy()])
+                        replacement_formula = And(inp_0, inp_1).get_negated_copy()
+                    replacement_formula.parent = unallowed_literal.parent
+                    if first_argument:
                         replacement_formula.parent.first_argument = replacement_formula
                     else:
                         replacement_formula.parent.second_argument = replacement_formula
         return formula
 
-    # find constants in a formula
-    @staticmethod
-    def find_literal_in_formula(formula, literals, included, first_argument=True):
-        if formula.__class__ == Literal:
-            if (formula in literals) == included:
-                return formula, first_argument
-            return None, None
-        else:
-            ret = Generator.find_literal_in_formula(formula.first_argument, literals, included, True)
-            if ret is None:
-                return Generator.find_literal_in_formula(formula.second_argument, literals, included, False)
+    # simplify formula by removing constants
+    def remove_constants(self, formula):
+        while True:
+            constants = []
+            self.find_literals_in_formula(formula, Literal.get_constants(), True, constants)
+            if len(constants) == 0:
+                break
             else:
-                return ret
+                for constant, first_argument in constants:
+                    replacement_formula = None
+                    if constant.parent is None:
+                        break
+                    if constant == Literal.true():
+                        if constant.parent.__class__ == And:
+                            replacement_formula = constant.parent.second_argument if first_argument else constant.parent.first_argument
+                        elif constant.parent.__class__ == Or:
+                            replacement_formula = Literal.true()
+                    elif constant == Literal.false():
+                        if constant.parent.__class__ == And:
+                            replacement_formula = Literal.false()
+                        elif constant.parent.__class__ == Or:
+                            replacement_formula = constant.parent.second_argument if first_argument else constant.parent.first_argument
+                    replacement_formula.parent = constant.parent.parent
+                    if replacement_formula.parent is None:
+                        formula = replacement_formula
+                    else:
+                        if replacement_formula.parent.first_argument.__class__ in [And, Or] and replacement_formula.parent.first_argument == constant.parent:
+                            replacement_formula.parent.first_argument = replacement_formula
+                        else:
+                            replacement_formula.parent.second_argument = replacement_formula
+        return formula
+
+    # find constants in a formula
+    def find_literals_in_formula(self, formula, literals, included, container, first_argument=True):
+        if formula.__class__ == Literal:
+            if included:
+                if formula in literals:
+                    container.append((formula, first_argument))
+            else:
+                if formula not in literals:
+                    container.append((formula, first_argument))
+        else:
+            self.find_literals_in_formula(formula.first_argument, literals, included, container, True)
+            self.find_literals_in_formula(formula.second_argument, literals, included, container, False)
 
     # construct a cnf formula using Tseitin transformation
     def generate_clauses(self, formula):
         if formula.__class__ == Literal:
-            return formula
+            if formula == Literal.false():
+                return {('-1', ), ('1', )}
+            elif formula == Literal.true():
+                return {('1', )}
         else:
             self.add_labels(formula)
-            clauses = {(formula.label.get_copy(), formula.label.get_copy())}
+            clauses = {(self.convert_to_string_literal(formula.label, False), )}
             self.add_equivalences(formula, clauses)
             return clauses
 
+    # generate the dimacs string
     def build_dimacs(self, clauses):
-        dimacs = f'p cnf {self.model.label_start_index} {len(clauses)}\n'
-        for clause in clauses:
-            dimacs += f'{" ".join([self.convert_to_string_literal(x.literal) for x in clause])} 0\n'
+        dimacs = f'p cnf {self.model.label_running_index} {len(clauses)}\n'
+        dimacs += '\n'.join([f'{" ".join(clause)} 0' for clause in clauses])
         return dimacs
 
+    # label all internal nodes in the syntax tree of the formula
     def add_labels(self, formula):
         if formula.__class__ == Literal:
             return
         else:
-            self.model.label_start_index += 1
-            formula.label = Literal(self.model.label_start_index, None)
+            self.model.label_running_index += 1
+            formula.label = Literal(self.model.label_running_index, None)
             self.add_labels(formula.first_argument)
             self.add_labels(formula.second_argument)
 
-    @staticmethod
-    def add_equivalences(formula, clauses):
+    # generate clauses for all the equivalences used in the Tseitin transformation
+    def add_equivalences(self, formula, clauses):
         if formula.__class__ == Literal:
             return
         else:
@@ -218,15 +223,21 @@ class Generator:
             if second_argument.__class__ != Literal:
                 second_argument = second_argument.label
             if formula.__class__ == And:
-                clauses.add((label.get_copy(), first_argument.get_negated_copy(), second_argument.get_negated_copy()))
-                clauses.add((label.get_negated_copy(), first_argument.get_copy()))
-                clauses.add((label.get_negated_copy(), second_argument.get_copy()))
-            elif formula.__class__ == Or:
-                clauses.add((label.get_negated_copy(), first_argument.get_copy(), second_argument.get_copy()))
-                clauses.add((label.get_copy(), first_argument.get_negated_copy()))
-                clauses.add((label.get_copy(), second_argument.get_negated_copy()))
-            Generator.add_equivalences(formula.first_argument, clauses)
-            Generator.add_equivalences(formula.second_argument, clauses)
+                sign = True
+            else:
+                sign = False
+            clauses.add((self.convert_to_string_literal(label, not sign), self.convert_to_string_literal(first_argument, sign), self.convert_to_string_literal(second_argument, sign)))
+            clauses.add((self.convert_to_string_literal(label, sign), self.convert_to_string_literal(first_argument, not sign)))
+            clauses.add((self.convert_to_string_literal(label, sign), self.convert_to_string_literal(second_argument, not sign)))
+            self.add_equivalences(formula.first_argument, clauses)
+            self.add_equivalences(formula.second_argument, clauses)
+
+    # count the nodes in a formula
+    def count_nodes_in_formula(self, formula):
+        if formula.__class__ == Literal:
+            return 1
+        else:
+            return self.count_nodes_in_formula(formula.first_argument) + self.count_nodes_in_formula(formula.second_argument)
 
 
 class And:
@@ -278,11 +289,11 @@ class Literal:
 
     @staticmethod
     def true():
-        return Literal(1, None)
+        return Literal(-1, None)
 
     @staticmethod
     def false():
-        return Literal(-1, None)
+        return Literal(1, None)
 
     @staticmethod
     def get_constants():
