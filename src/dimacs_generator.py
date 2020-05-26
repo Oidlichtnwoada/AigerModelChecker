@@ -21,12 +21,6 @@ class Generator:
         index = (literal // 2) + 1
         return Literal(index * sign, None)
 
-    # construct a string literal from a literal object
-    @staticmethod
-    def convert_to_string_literal(literal, negated):
-        literal = literal.literal * -1 if negated else literal.literal
-        return str(literal)
-
     # change the list structure to hash maps to speed up searching
     def preprocess(self):
         inputs = {}
@@ -189,7 +183,7 @@ class Generator:
                 return {('1',)}
         else:
             self.add_labels(formula)
-            clauses = {(self.convert_to_string_literal(formula.label, False),)}
+            clauses = {(str(formula.label.literal),)}
             self.add_equivalences(formula, clauses)
             return clauses
 
@@ -215,20 +209,24 @@ class Generator:
         if formula.__class__ == Literal:
             return
         else:
-            label = formula.label
+            label = formula.label.literal
             first_argument = formula.first_argument
             if first_argument.__class__ != Literal:
-                first_argument = first_argument.label
+                first_argument = first_argument.label.literal
+            else:
+                first_argument = first_argument.literal
             second_argument = formula.second_argument
             if second_argument.__class__ != Literal:
-                second_argument = second_argument.label
-            if formula.__class__ == And:
-                sign = True
+                second_argument = second_argument.label.literal
             else:
-                sign = False
-            clauses.add((self.convert_to_string_literal(label, not sign), self.convert_to_string_literal(first_argument, sign), self.convert_to_string_literal(second_argument, sign)))
-            clauses.add((self.convert_to_string_literal(label, sign), self.convert_to_string_literal(first_argument, not sign)))
-            clauses.add((self.convert_to_string_literal(label, sign), self.convert_to_string_literal(second_argument, not sign)))
+                second_argument = second_argument.literal
+            if formula.__class__ == And:
+                sign = -1
+            else:
+                sign = 1
+            clauses.add((str(label * -1 * sign), str(first_argument * sign), str(second_argument * sign)))
+            clauses.add((str(label * sign), str(first_argument * -1 * sign)))
+            clauses.add((str(label * sign), str(second_argument * -1 * sign)))
             self.add_equivalences(formula.first_argument, clauses)
             self.add_equivalences(formula.second_argument, clauses)
 
