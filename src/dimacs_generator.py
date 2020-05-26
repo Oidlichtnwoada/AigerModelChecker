@@ -183,7 +183,7 @@ class Generator:
                 return {('1',)}
         else:
             self.add_labels(formula)
-            clauses = {(str(formula.label.literal),)}
+            clauses = {(formula.label.literal,)}
             self.add_equivalences(formula, clauses)
             return clauses
 
@@ -192,7 +192,7 @@ class Generator:
         with open('../dimacs/dimacs.txt', 'w') as file:
             file.write(f'p cnf {self.model.label_running_index} {len(clauses)}\n')
             for clause in clauses:
-                file.write(f'{" ".join(clause)} 0\n')
+                file.write(f'{" ".join(map(str, clause))} 0\n')
 
     # label all internal nodes in the syntax tree of the formula
     def add_labels(self, formula):
@@ -224,9 +224,9 @@ class Generator:
                 sign = -1
             else:
                 sign = 1
-            clauses.add((str(label * -1 * sign), str(first_argument * sign), str(second_argument * sign)))
-            clauses.add((str(label * sign), str(first_argument * -1 * sign)))
-            clauses.add((str(label * sign), str(second_argument * -1 * sign)))
+            clauses.add((label * -1 * sign, first_argument * sign, second_argument * sign))
+            clauses.add((label * sign, first_argument * -1 * sign))
+            clauses.add((label * sign, second_argument * -1 * sign))
             self.add_equivalences(formula.first_argument, clauses)
             self.add_equivalences(formula.second_argument, clauses)
 
