@@ -191,8 +191,7 @@ class Generator:
     def build_dimacs(self, clauses):
         with open('../dimacs/dimacs.txt', 'w') as file:
             file.write(f'p cnf {self.model.label_running_index} {len(clauses)}\n')
-            for clause in clauses:
-                file.write(f'{" ".join(map(str, clause))} 0\n')
+            [file.write(f'{" ".join(map(str, clause))} 0\n') for clause in clauses]
 
     # label all internal nodes in the syntax tree of the formula
     def add_labels(self, formula):
