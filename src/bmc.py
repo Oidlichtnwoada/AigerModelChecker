@@ -1,4 +1,4 @@
-from subprocess import run, PIPE
+from subprocess import run
 from sys import argv
 
 from aiger_parser import Parser
@@ -14,7 +14,7 @@ class BoundedModelChecker:
         if not interpolation:
             generator = Generator(self.model, bound)
             generator.generate()
-            output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
+            output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], capture_output=True).stdout.decode('ascii')
             if 'UNSATISFIABLE' in output:
                 print('OK')
             else:

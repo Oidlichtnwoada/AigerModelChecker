@@ -4,11 +4,11 @@ from collections import deque
 # structure for the model object
 class Model:
     def __init__(self):
-        self.maximum_variable_index = None
-        self.number_of_inputs = None
-        self.number_of_latches = None
-        self.number_of_outputs = None
-        self.number_of_and_gates = None
+        self.maximum_variable_index = 0
+        self.number_of_inputs = 0
+        self.number_of_latches = 0
+        self.number_of_outputs = 0
+        self.number_of_and_gates = 0
         self.inputs = []
         self.latches = []
         self.outputs = []
