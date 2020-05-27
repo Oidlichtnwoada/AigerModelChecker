@@ -77,10 +77,10 @@ class Generator:
             literal = formula
             if literal not in Literal.get_constants():
                 value = self.model.maximum_variable_index * steps
-                if literal.literal < 0:
-                    literal.literal -= value
+                if literal.label < 0:
+                    literal.label -= value
                 else:
-                    literal.literal += value
+                    literal.label += value
         else:
             self.increment_steps(formula.first_argument, steps)
             self.increment_steps(formula.second_argument, steps)
@@ -183,7 +183,7 @@ class Generator:
                 return {('1',)}
         else:
             self.add_labels(formula)
-            clauses = {(formula.label.literal,)}
+            clauses = {(formula.label.label,)}
             self.add_equivalences(formula, clauses)
             return clauses
 
@@ -208,17 +208,17 @@ class Generator:
         if formula.__class__ == Literal:
             return
         else:
-            label = formula.label.literal
+            label = formula.label.label
             first_argument = formula.first_argument
             if first_argument.__class__ != Literal:
-                first_argument = first_argument.label.literal
+                first_argument = first_argument.label.label
             else:
-                first_argument = first_argument.literal
+                first_argument = first_argument.label
             second_argument = formula.second_argument
             if second_argument.__class__ != Literal:
-                second_argument = second_argument.label.literal
+                second_argument = second_argument.label.label
             else:
-                second_argument = second_argument.literal
+                second_argument = second_argument.label
             if formula.__class__ == And:
                 sign = -1
             else:
@@ -270,19 +270,19 @@ class Or:
 class Literal:
     def __init__(self, literal, parent):
         self.parent = parent
-        self.literal = literal
+        self.label = literal
 
     def get_negated_copy(self):
-        return Literal(self.literal * -1, self.parent)
+        return Literal(self.label * -1, self.parent)
 
     def get_copy(self):
-        return Literal(self.literal, self.parent)
+        return Literal(self.label, self.parent)
 
     def __eq__(self, other):
-        return self.literal == other.literal
+        return self.label == other.label
 
     def __hash__(self):
-        return self.literal
+        return self.label
 
     @staticmethod
     def true():
