@@ -7,7 +7,7 @@ class Generator:
         # preprocess the model to use literal objects
         self.preprocess()
         # build syntax tree of formula to check
-        formula = And(0, self.initial(), And(0, self.transition(), self.safety()))
+        formula = And(self.initial(), And(self.transition(), self.safety()))
         # remove constants from formula
         self.remove_constants(formula)
         clauses = self.generate_clauses(formula)
@@ -19,7 +19,7 @@ class Generator:
         sign = -1 if bool(literal % 2) else 1
         # add 1 because constants were added at index 1
         index = (literal // 2) + 1
-        return Literal(index * sign, None, None)
+        return Literal(None, None, index * sign)
 
     # change the list structure to hash maps to speed up searching
     def preprocess(self):
@@ -52,13 +52,13 @@ class Generator:
     def get_equivalence_formula(arg_0, arg_1):
         neg_arg_0 = arg_0.get_negated_copy()
         neg_arg_1 = arg_1.get_negated_copy()
-        return Or(0, And(0, arg_0, arg_1), And(0, neg_arg_0, neg_arg_1))
+        return Or(And(arg_0, arg_1), And(neg_arg_0, neg_arg_1))
 
     # build up the initial state formula to guarantee that all latches are initialized to zero
     def initial(self):
         formula = Literal.true()
         for out in self.model.latches:
-            formula = And(0, formula, out.get_negated_copy())
+            formula = And(formula, out.get_negated_copy())
         return formula
 
     # build up the safety formula which is satisfiable if a bad state has been reached
@@ -68,7 +68,7 @@ class Generator:
         for i in range(self.bound + 1):
             current_step_out = self.replace_with_allowed_literals(out.get_copy())
             self.increment_steps(current_step_out, i)
-            formula = Or(0, formula, current_step_out)
+            formula = Or(formula, current_step_out)
         return formula
 
     # increments the steps of literals in a formula
@@ -92,7 +92,7 @@ class Generator:
         for i in range(self.bound):
             transition_step = transition_formula.get_copy()
             self.increment_steps(transition_step, i)
-            formula = And(0, formula, transition_step)
+            formula = And(formula, transition_step)
         return formula
 
     # build up the transition step formula from step 0 to 1
@@ -103,12 +103,12 @@ class Generator:
             self.increment_steps(next_step_out, 1)
             prev_step_in = self.replace_with_allowed_literals(self.model.latches[out].get_copy())
             transition = self.get_equivalence_formula(next_step_out, prev_step_in)
-            formula = And(0, formula, transition)
+            formula = And(formula, transition)
         return formula
 
     # only the inputs of the system, outputs of latches and constants occur in the returned formula and their negations
     def replace_with_allowed_literals(self, formula):
-        formula = And(0, Literal.true(), formula)
+        formula = And(Literal.true(), formula)
         while True:
             unallowed_literals = []
             self.find_literals_in_formula(formula, self.model.allowed_literals, False, unallowed_literals)
@@ -118,10 +118,10 @@ class Generator:
                 for unallowed_literal, first_argument in unallowed_literals:
                     if unallowed_literal in self.model.and_gates:
                         inp_0, inp_1 = map(Literal.get_copy, self.model.and_gates[unallowed_literal])
-                        replacement_formula = And(0, inp_0, inp_1)
+                        replacement_formula = And(inp_0, inp_1)
                     else:
                         inp_0, inp_1 = map(Literal.get_copy, self.model.and_gates[unallowed_literal.get_negated_copy()])
-                        replacement_formula = And(0, inp_0, inp_1).get_negated_copy()
+                        replacement_formula = And(inp_0, inp_1).get_negated_copy()
                     replacement_formula.parent = unallowed_literal.parent
                     if first_argument:
                         replacement_formula.parent.first_argument = replacement_formula
@@ -199,7 +199,7 @@ class Generator:
             return
         else:
             self.model.label_running_index += 1
-            formula.label = Literal(self.model.label_running_index, None, None)
+            formula.label = Literal(None, None, self.model.label_running_index)
             self.add_labels(formula.first_argument)
             self.add_labels(formula.second_argument)
 
@@ -238,53 +238,57 @@ class Generator:
 
 
 class And:
-    def __init__(self, label, first_argument, second_argument, parent=None):
-        self.label = label
-        self.first_argument = first_argument
-        self.first_argument.parent = self
-        self.second_argument = second_argument
-        self.second_argument.parent = self
-        self.parent = parent
-
-    def get_negated_copy(self):
-        return Or(self.label, self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy(), self.parent)
-
-    def get_copy(self):
-        return And(self.label, self.first_argument.get_copy(), self.second_argument.get_copy(), self.parent)
-
-
-class Or:
-    def __init__(self, label, first_argument, second_argument, parent=None):
-        self.label = label
-        self.first_argument = first_argument
-        self.first_argument.parent = self
-        self.second_argument = second_argument
-        self.second_argument.parent = self
-        self.parent = parent
-
-    def get_negated_copy(self):
-        return And(self.label, self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy(), self.parent)
-
-    def get_copy(self):
-        return Or(self.label, self.first_argument.get_copy(), self.second_argument.get_copy(), self.parent)
-
-
-class Literal:
-    def __init__(self, label, first_argument, second_argument, parent=None):
-        self.label = label
+    def __init__(self, first_argument, second_argument, label=0, parent=None):
         self.first_argument = first_argument
         if self.first_argument:
             self.first_argument.parent = self
         self.second_argument = second_argument
         if self.second_argument:
             self.second_argument.parent = self
+        self.label = label
         self.parent = parent
 
     def get_negated_copy(self):
-        return Literal(self.label * -1, self.first_argument, self.second_argument, self.parent)
+        return Or(self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy(), self.label, self.parent)
 
     def get_copy(self):
-        return Literal(self.label, self.first_argument, self.second_argument, self.parent)
+        return And(self.first_argument.get_copy(), self.second_argument.get_copy(), self.label, self.parent)
+
+
+class Or:
+    def __init__(self, first_argument, second_argument, label=0, parent=None):
+        self.first_argument = first_argument
+        if self.first_argument:
+            self.first_argument.parent = self
+        self.second_argument = second_argument
+        if self.second_argument:
+            self.second_argument.parent = self
+        self.label = label
+        self.parent = parent
+
+    def get_negated_copy(self):
+        return And(self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy(), self.label, self.parent)
+
+    def get_copy(self):
+        return Or(self.first_argument.get_copy(), self.second_argument.get_copy(), self.label, self.parent)
+
+
+class Literal:
+    def __init__(self, first_argument, second_argument, label=0, parent=None):
+        self.first_argument = first_argument
+        if self.first_argument:
+            self.first_argument.parent = self
+        self.second_argument = second_argument
+        if self.second_argument:
+            self.second_argument.parent = self
+        self.label = label
+        self.parent = parent
+
+    def get_negated_copy(self):
+        return Literal(self.first_argument, self.second_argument, self.label * -1, self.parent)
+
+    def get_copy(self):
+        return Literal(self.first_argument, self.second_argument, self.label, self.parent)
 
     def __eq__(self, other):
         return self.label == other.label
@@ -294,11 +298,11 @@ class Literal:
 
     @staticmethod
     def true():
-        return Literal(-1, None, None)
+        return Literal(None, None, -1)
 
     @staticmethod
     def false():
-        return Literal(1, None, None)
+        return Literal(None, None, 1)
 
     @staticmethod
     def get_constants():
