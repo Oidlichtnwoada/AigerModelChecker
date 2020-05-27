@@ -192,7 +192,7 @@ class Generator:
                 return {('1',)}
         else:
             self.add_labels(formula)
-            clauses = {(formula.label.label,)}
+            clauses = {(formula.label,)}
             self.add_equivalences(formula, clauses)
             return clauses
 
@@ -208,7 +208,7 @@ class Generator:
             return
         else:
             self.model.label_running_index += 1
-            formula.label = Node(NodeType.LITERAL, None, None, self.model.label_running_index)
+            formula.label = self.model.label_running_index
             self.add_labels(formula.first_argument)
             self.add_labels(formula.second_argument)
 
@@ -217,17 +217,9 @@ class Generator:
         if formula.node_type == NodeType.LITERAL:
             return
         else:
-            label = formula.label.label
-            first_argument = formula.first_argument
-            if first_argument.node_type != NodeType.LITERAL:
-                first_argument = first_argument.label.label
-            else:
-                first_argument = first_argument.label
-            second_argument = formula.second_argument
-            if second_argument.node_type != NodeType.LITERAL:
-                second_argument = second_argument.label.label
-            else:
-                second_argument = second_argument.label
+            label = formula.label
+            first_argument = formula.first_argument.label
+            second_argument = formula.second_argument.label
             if formula.node_type == NodeType.AND:
                 sign = -1
             else:
