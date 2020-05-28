@@ -60,7 +60,7 @@ class Generator:
                 value = self.model.maximum_variable_index * steps
                 if literal.is_negative_literal():
                     literal.label -= value
-                else:
+                elif literal.is_positive_literal():
                     literal.label += value
         else:
             self.increment_steps(formula.first_argument, steps)
@@ -180,6 +180,7 @@ class Generator:
             self.add_equivalences(formula.second_argument, clauses)
 
 
+# the Node object for building the formulas
 class Node:
     def __init__(self, node_type, first_argument, second_argument, label, parent):
         self.node_type = node_type
@@ -259,9 +260,12 @@ class Node:
     def get_constants():
         return [Node.true(), Node.false()]
 
-    # build equivalence out of OR, AND and NEGATION
+    # build equivalence formula
     @staticmethod
-    def get_equivalence_formula(arg_0, arg_1):
-        neg_arg_0 = arg_0.get_negated_copy()
-        neg_arg_1 = arg_1.get_negated_copy()
-        return Node.Or(Node.And(arg_0, arg_1), Node.And(neg_arg_0, neg_arg_1))
+    def get_equivalence_formula(first_argument, second_argument):
+        first_argument = first_argument.get_copy()
+        negated_first_argument = first_argument.get_negated_copy()
+        second_argument = second_argument.get_copy()
+        negated_second_argument = second_argument.get_negated_copy()
+        return Node.Or(Node.And(first_argument, second_argument),
+                       Node.And(negated_first_argument, negated_second_argument))
