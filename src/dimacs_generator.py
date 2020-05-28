@@ -24,16 +24,16 @@ class Generator:
 
     # add the equivalences enforced by the and gates to the formula
     def equivalences(self):
-        formula = Node.true()
+        equivalences = Node.true()
         for out, (inp_0, inp_1) in self.model.and_gates.items():
             equivalence = Node.get_equivalence_formula(out.get_copy(), Node.And(inp_0.get_copy(), inp_1.get_copy()))
-            formula = Node.And(formula, equivalence)
-        equivalences = Node.true()
+            equivalences = Node.And(equivalences, equivalence)
+        all_equivalences = Node.true()
         for i in range(self.bound + 1):
-            current_step_equivalences = formula.get_copy()
+            current_step_equivalences = equivalences.get_copy()
             self.increment_steps(current_step_equivalences, i)
-            equivalences = Node.And(equivalences, current_step_equivalences)
-        return equivalences
+            all_equivalences = Node.And(all_equivalences, current_step_equivalences)
+        return all_equivalences
 
     # build up the initial state formula to guarantee that all latches are initialized to zero
     def initial(self):
@@ -45,26 +45,12 @@ class Generator:
     # build up the safety formula which is satisfiable if a bad state has been reached
     def safety(self):
         formula = Node.false()
-        initial_out = self.model.outputs[0]
+        bad_state_detector = self.model.outputs[0]
         for i in range(self.bound + 1):
-            current_step_out = initial_out.get_copy()
-            self.increment_steps(current_step_out, i)
-            formula = Node.Or(formula, current_step_out)
+            current_step_bad_state_detector = bad_state_detector.get_copy()
+            self.increment_steps(current_step_bad_state_detector, i)
+            formula = Node.Or(formula, current_step_bad_state_detector)
         return formula
-
-    # increments the steps of literals in a formula
-    def increment_steps(self, formula, steps):
-        if formula.is_literal():
-            literal = formula
-            if literal not in Node.get_constants():
-                value = self.model.maximum_variable_index * steps
-                if literal.is_negative_literal():
-                    literal.label -= value
-                elif literal.is_positive_literal():
-                    literal.label += value
-        else:
-            self.increment_steps(formula.first_argument, steps)
-            self.increment_steps(formula.second_argument, steps)
 
     # build up the transition formula
     def transition(self):
@@ -86,6 +72,20 @@ class Generator:
             transition = Node.get_equivalence_formula(next_step_out, prev_step_in)
             formula = Node.And(formula, transition)
         return formula
+
+    # increments the steps of literals in a formula
+    def increment_steps(self, formula, steps):
+        if formula.is_literal():
+            literal = formula
+            if literal not in Node.get_constants():
+                value = self.model.maximum_variable_index * steps
+                if literal.is_negative_literal():
+                    literal.label -= value
+                elif literal.is_positive_literal():
+                    literal.label += value
+        else:
+            self.increment_steps(formula.first_argument, steps)
+            self.increment_steps(formula.second_argument, steps)
 
     # simplify formula by removing constants
     def remove_constants(self, formula):
@@ -140,8 +140,8 @@ class Generator:
             elif formula == Node.true():
                 return {('1',)}
         else:
-            self.add_labels(formula)
             clauses = {(formula.label,)}
+            self.add_labels(formula)
             self.add_equivalences(formula, clauses)
             return clauses
 
@@ -169,13 +169,10 @@ class Generator:
             label = formula.label
             first_argument = formula.first_argument.label
             second_argument = formula.second_argument.label
-            if formula.is_and():
-                sign = -1
-            else:
-                sign = 1
-            clauses.add((label * -1 * sign, first_argument * sign, second_argument * sign))
-            clauses.add((label * sign, first_argument * -1 * sign))
-            clauses.add((label * sign, second_argument * -1 * sign))
+            factor = -1 if formula.is_and() else 1
+            clauses.add((label * -1 * factor, first_argument * factor, second_argument * factor))
+            clauses.add((label * factor, first_argument * -1 * factor))
+            clauses.add((label * factor, second_argument * -1 * factor))
             self.add_equivalences(formula.first_argument, clauses)
             self.add_equivalences(formula.second_argument, clauses)
 
