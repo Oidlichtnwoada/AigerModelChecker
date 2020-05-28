@@ -16,7 +16,7 @@ class Generator:
         # preprocess the model to use literal objects
         self.preprocess()
         # build syntax tree of formula to check
-        formula = Node(NodeType.AND, self.initial(), Node(NodeType.AND, self.transition(), self.safety()))
+        formula = Node.And(self.initial(), Node.And(self.transition(), self.safety()))
         # remove constants from formula
         self.remove_constants(formula)
         clauses = self.generate_clauses(formula)
@@ -28,7 +28,7 @@ class Generator:
         sign = -1 if bool(literal % 2) else 1
         # add 1 because constants were added at index 1
         index = (literal // 2) + 1
-        return Node(NodeType.LITERAL, None, None, index * sign)
+        return Node.Literal(index * sign)
 
     # change the list structure to hash maps to speed up searching
     def preprocess(self):
@@ -61,13 +61,13 @@ class Generator:
     def get_equivalence_formula(arg_0, arg_1):
         neg_arg_0 = arg_0.get_negated_copy()
         neg_arg_1 = arg_1.get_negated_copy()
-        return Node(NodeType.OR, Node(NodeType.AND, arg_0, arg_1), Node(NodeType.AND, neg_arg_0, neg_arg_1))
+        return Node.Or(Node.And(arg_0, arg_1), Node.And(neg_arg_0, neg_arg_1))
 
     # build up the initial state formula to guarantee that all latches are initialized to zero
     def initial(self):
         formula = Node.true()
         for out in self.model.latches:
-            formula = Node(NodeType.AND, formula, out.get_negated_copy())
+            formula = Node.And(formula, out.get_negated_copy())
         return formula
 
     # build up the safety formula which is satisfiable if a bad state has been reached
@@ -77,7 +77,7 @@ class Generator:
         for i in range(self.bound + 1):
             current_step_out = initial_out.get_copy()
             self.increment_steps(current_step_out, i)
-            formula = Node(NodeType.OR, formula, current_step_out)
+            formula = Node.Or(formula, current_step_out)
         return formula
 
     # increments the steps of literals in a formula
@@ -101,7 +101,7 @@ class Generator:
         for i in range(self.bound):
             transition_step = transition_formula.get_copy()
             self.increment_steps(transition_step, i)
-            formula = Node(NodeType.AND, formula, transition_step)
+            formula = Node.And(formula, transition_step)
         return formula
 
     # build up the transition step formula from step 0 to 1
@@ -112,12 +112,12 @@ class Generator:
             self.increment_steps(next_step_out, 1)
             prev_step_in = self.replace_with_allowed_literals(self.model.latches[out].get_copy())
             transition = self.get_equivalence_formula(next_step_out, prev_step_in)
-            formula = Node(NodeType.AND, formula, transition)
+            formula = Node.And(formula, transition)
         return formula
 
     # only the inputs of the system, outputs of latches and constants occur in the returned formula and their negations
     def replace_with_allowed_literals(self, formula):
-        formula = Node(NodeType.AND, Node.true(), formula)
+        formula = Node.And(Node.true(), formula)
         while True:
             unallowed_literals = []
             self.find_literals_in_formula(formula, self.model.allowed_literals, False, unallowed_literals)
@@ -127,10 +127,10 @@ class Generator:
                 for unallowed_literal, first_argument in unallowed_literals:
                     if unallowed_literal in self.model.and_gates:
                         inp_0, inp_1 = map(Node.get_copy, self.model.and_gates[unallowed_literal])
-                        replacement_formula = Node(NodeType.AND, inp_0, inp_1)
+                        replacement_formula = Node.And(inp_0, inp_1)
                     else:
                         inp_0, inp_1 = map(Node.get_copy, self.model.and_gates[unallowed_literal.get_negated_copy()])
-                        replacement_formula = Node(NodeType.AND, inp_0, inp_1).get_negated_copy()
+                        replacement_formula = Node.And(inp_0, inp_1).get_negated_copy()
                     replacement_formula.parent = unallowed_literal.parent
                     if first_argument:
                         replacement_formula.parent.first_argument = replacement_formula
@@ -232,38 +232,31 @@ class Generator:
 
 
 class Node:
-    def __init__(self, node_type, first_argument, second_argument, label=0, parent=None):
+    def __init__(self, node_type, first_argument, second_argument, label, parent):
         self.node_type = node_type
         self.first_argument = first_argument
-        if self.first_argument:
-            self.first_argument.parent = self
         self.second_argument = second_argument
-        if self.second_argument:
-            self.second_argument.parent = self
         self.label = label
         self.parent = parent
+        if self.first_argument and self.second_argument:
+            self.first_argument.parent = self
+            self.second_argument.parent = self
 
     def get_negated_copy(self):
         if self.is_and():
-            return Node(NodeType.OR, self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy(), self.label, self.parent)
+            return Node.Or(self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy())
         elif self.is_or():
-            return Node(NodeType.AND, self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy(), self.label, self.parent)
+            return Node.And(self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy())
         elif self.is_literal():
-            return Node(NodeType.LITERAL, self.first_argument, self.second_argument, self.label * -1, self.parent)
+            return Node.Literal(self.label * -1)
 
     def get_copy(self):
         if self.is_and():
-            return Node(NodeType.AND, self.first_argument.get_copy(), self.second_argument.get_copy(), self.label, self.parent)
+            return Node.And(self.first_argument.get_copy(), self.second_argument.get_copy())
         elif self.is_or():
-            return Node(NodeType.OR, self.first_argument.get_copy(), self.second_argument.get_copy(), self.label, self.parent)
+            return Node.Or(self.first_argument.get_copy(), self.second_argument.get_copy())
         elif self.is_literal():
-            return Node(NodeType.LITERAL, self.first_argument, self.second_argument, self.label, self.parent)
-
-    def __eq__(self, other):
-        return self.label == other.label
-
-    def __hash__(self):
-        return self.label
+            return Node.Literal(self.label)
 
     def is_and(self):
         return self.node_type == NodeType.AND
@@ -274,6 +267,12 @@ class Node:
     def is_literal(self):
         return self.node_type == NodeType.LITERAL
 
+    def __eq__(self, other):
+        return self.label == other.label
+
+    def __hash__(self):
+        return self.label
+
     # count the nodes in formula
     def count_nodes_in_formula(self):
         if self.is_literal():
@@ -282,12 +281,24 @@ class Node:
             return self.first_argument.count_nodes_in_formula() + self.second_argument.count_nodes_in_formula()
 
     @staticmethod
+    def And(first_argument, second_argument):
+        return Node(NodeType.AND, first_argument, second_argument, 0, None)
+
+    @staticmethod
+    def Or(first_argument, second_argument):
+        return Node(NodeType.OR, first_argument, second_argument, 0, None)
+
+    @staticmethod
+    def Literal(label):
+        return Node(NodeType.LITERAL, None, None, label, None)
+
+    @staticmethod
     def true():
-        return Node(NodeType.LITERAL, None, None, -1)
+        return Node.Literal(-1)
 
     @staticmethod
     def false():
-        return Node(NodeType.LITERAL, None, None, 1)
+        return Node.Literal(1)
 
     @staticmethod
     def get_constants():
