@@ -93,7 +93,7 @@ class Generator:
         self.add_equivalences_to_clauses(formula, clauses)
         return clauses
 
-    # generate the dimacs string
+    # generate the dimacs file
     def build_dimacs(self, clauses):
         with open('../dimacs/dimacs.txt', 'w') as file:
             file.write(f'p cnf {self.model.label_running_index} {len(clauses)}\n')
@@ -121,7 +121,7 @@ class Generator:
             self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
 
-# the Node object for building the formula to be checked with the SAT solver
+# the Node object for building the syntax tree of the formula to be checked with the SAT solver
 class Node:
     def __init__(self, node_type, first_argument, second_argument, label, parent):
         self.node_type = node_type
