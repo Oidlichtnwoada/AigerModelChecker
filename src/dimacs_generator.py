@@ -82,7 +82,7 @@ class Generator:
 
     # increments the steps of literals in a formula
     def increment_steps(self, formula, steps):
-        if formula.node_type == NodeType.LITERAL:
+        if formula.is_literal():
             literal = formula
             if literal not in Node.get_constants():
                 value = self.model.maximum_variable_index * steps
@@ -151,14 +151,14 @@ class Generator:
                     if constant.parent is None:
                         break
                     if constant == Node.true():
-                        if constant.parent.node_type == NodeType.AND:
+                        if constant.parent.is_and():
                             replacement_formula = constant.parent.second_argument if first_argument else constant.parent.first_argument
-                        elif constant.parent.node_type == NodeType.OR:
+                        elif constant.parent.is_or():
                             replacement_formula = Node.true()
                     elif constant == Node.false():
-                        if constant.parent.node_type == NodeType.AND:
+                        if constant.parent.is_and():
                             replacement_formula = Node.false()
-                        elif constant.parent.node_type == NodeType.OR:
+                        elif constant.parent.is_or():
                             replacement_formula = constant.parent.second_argument if first_argument else constant.parent.first_argument
                     replacement_formula.parent = constant.parent.parent
                     if replacement_formula.parent is None:
@@ -172,7 +172,7 @@ class Generator:
 
     # find constants in a formula
     def find_literals_in_formula(self, formula, literals, included, container, first_argument=True):
-        if formula.node_type == NodeType.LITERAL:
+        if formula.is_literal():
             if included:
                 if formula in literals:
                     container.append((formula, first_argument))
@@ -185,7 +185,7 @@ class Generator:
 
     # construct a cnf formula using Tseitin transformation
     def generate_clauses(self, formula):
-        if formula.node_type == NodeType.LITERAL:
+        if formula.is_literal():
             if formula == Node.false():
                 return {('-1',), ('1',)}
             elif formula == Node.true():
@@ -204,7 +204,7 @@ class Generator:
 
     # label all internal nodes in the syntax tree of the formula
     def add_labels(self, formula):
-        if formula.node_type == NodeType.LITERAL:
+        if formula.is_literal():
             return
         else:
             self.model.label_running_index += 1
@@ -214,13 +214,13 @@ class Generator:
 
     # generate clauses for all the equivalences used in the Tseitin transformation
     def add_equivalences(self, formula, clauses):
-        if formula.node_type == NodeType.LITERAL:
+        if formula.is_literal():
             return
         else:
             label = formula.label
             first_argument = formula.first_argument.label
             second_argument = formula.second_argument.label
-            if formula.node_type == NodeType.AND:
+            if formula.is_and():
                 sign = -1
             else:
                 sign = 1
@@ -229,13 +229,6 @@ class Generator:
             clauses.add((label * sign, second_argument * -1 * sign))
             self.add_equivalences(formula.first_argument, clauses)
             self.add_equivalences(formula.second_argument, clauses)
-
-    # count the nodes in a formula
-    def count_nodes_in_formula(self, formula):
-        if formula.node_type == NodeType.LITERAL:
-            return 1
-        else:
-            return self.count_nodes_in_formula(formula.first_argument) + self.count_nodes_in_formula(formula.second_argument)
 
 
 class Node:
@@ -251,19 +244,19 @@ class Node:
         self.parent = parent
 
     def get_negated_copy(self):
-        if self.node_type == NodeType.AND:
+        if self.is_and():
             return Node(NodeType.OR, self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy(), self.label, self.parent)
-        elif self.node_type == NodeType.OR:
+        elif self.is_or():
             return Node(NodeType.AND, self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy(), self.label, self.parent)
-        elif self.node_type == NodeType.LITERAL:
+        elif self.is_literal():
             return Node(NodeType.LITERAL, self.first_argument, self.second_argument, self.label * -1, self.parent)
 
     def get_copy(self):
-        if self.node_type == NodeType.AND:
+        if self.is_and():
             return Node(NodeType.AND, self.first_argument.get_copy(), self.second_argument.get_copy(), self.label, self.parent)
-        elif self.node_type == NodeType.OR:
+        elif self.is_or():
             return Node(NodeType.OR, self.first_argument.get_copy(), self.second_argument.get_copy(), self.label, self.parent)
-        elif self.node_type == NodeType.LITERAL:
+        elif self.is_literal():
             return Node(NodeType.LITERAL, self.first_argument, self.second_argument, self.label, self.parent)
 
     def __eq__(self, other):
@@ -271,6 +264,22 @@ class Node:
 
     def __hash__(self):
         return self.label
+
+    def is_and(self):
+        return self.node_type == NodeType.AND
+
+    def is_or(self):
+        return self.node_type == NodeType.OR
+
+    def is_literal(self):
+        return self.node_type == NodeType.LITERAL
+
+    # count the nodes in formula
+    def count_nodes_in_formula(self):
+        if self.is_literal():
+            return 1
+        else:
+            return self.first_argument.count_nodes_in_formula() + self.second_argument.count_nodes_in_formula()
 
     @staticmethod
     def true():
