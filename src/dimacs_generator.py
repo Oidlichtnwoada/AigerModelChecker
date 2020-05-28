@@ -56,13 +56,6 @@ class Generator:
         self.model.label_start_index = self.model.maximum_variable_index * (self.bound + 1)
         self.model.label_running_index = self.model.label_start_index
 
-    # build equivalence out of OR, AND and NEGATION
-    @staticmethod
-    def get_equivalence_formula(arg_0, arg_1):
-        neg_arg_0 = arg_0.get_negated_copy()
-        neg_arg_1 = arg_1.get_negated_copy()
-        return Node.Or(Node.And(arg_0, arg_1), Node.And(neg_arg_0, neg_arg_1))
-
     # build up the initial state formula to guarantee that all latches are initialized to zero
     def initial(self):
         formula = Node.true()
@@ -111,7 +104,7 @@ class Generator:
             next_step_out = out.get_copy()
             self.increment_steps(next_step_out, 1)
             prev_step_in = self.replace_with_allowed_literals(self.model.latches[out].get_copy())
-            transition = self.get_equivalence_formula(next_step_out, prev_step_in)
+            transition = Node.get_equivalence_formula(next_step_out, prev_step_in)
             formula = Node.And(formula, transition)
         return formula
 
@@ -303,3 +296,10 @@ class Node:
     @staticmethod
     def get_constants():
         return [Node.true(), Node.false()]
+
+    # build equivalence out of OR, AND and NEGATION
+    @staticmethod
+    def get_equivalence_formula(arg_0, arg_1):
+        neg_arg_0 = arg_0.get_negated_copy()
+        neg_arg_1 = arg_1.get_negated_copy()
+        return Node.Or(Node.And(arg_0, arg_1), Node.And(neg_arg_0, neg_arg_1))
