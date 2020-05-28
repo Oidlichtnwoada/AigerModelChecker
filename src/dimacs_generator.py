@@ -15,8 +15,6 @@ class Generator:
     def generate(self):
         # build syntax tree of formula to check
         formula = Node.And(self.equivalences(), Node.And(self.initial(), Node.And(self.transition(), self.safety())))
-        # remove constants from formula
-        self.remove_constants(formula)
         # generate a clause set
         clauses = self.generate_clauses(formula)
         # write the clause set in dimacs style to a file
@@ -24,11 +22,11 @@ class Generator:
 
     # add the equivalences enforced by the and gates to the formula
     def equivalences(self):
-        equivalences = Node.true()
+        equivalences = Node.true(self.model)
         for out, (inp_0, inp_1) in self.model.and_gates.items():
             equivalence = Node.get_equivalence_formula(out.get_copy(), Node.And(inp_0.get_copy(), inp_1.get_copy()))
             equivalences = Node.And(equivalences, equivalence)
-        all_equivalences = Node.true()
+        all_equivalences = Node.true(self.model)
         for i in range(self.bound + 1):
             current_step_equivalences = equivalences.get_copy()
             self.increment_steps(current_step_equivalences, i)
@@ -37,14 +35,14 @@ class Generator:
 
     # build up the initial state formula to guarantee that all latches are initialized to zero
     def initial(self):
-        formula = Node.true()
+        formula = Node.true(self.model)
         for out in self.model.latches:
             formula = Node.And(formula, out.get_negated_copy())
         return formula
 
     # build up the safety formula which is satisfiable if a bad state has been reached
     def safety(self):
-        formula = Node.false()
+        formula = Node.false(self.model)
         bad_state_detector = self.model.outputs[0]
         for i in range(self.bound + 1):
             current_step_bad_state_detector = bad_state_detector.get_copy()
@@ -54,7 +52,7 @@ class Generator:
 
     # build up the transition formula
     def transition(self):
-        formula = Node.true()
+        formula = Node.true(self.model)
         transition_formula = self.transition_formula()
         for i in range(self.bound):
             transition_step = transition_formula.get_copy()
@@ -64,7 +62,7 @@ class Generator:
 
     # build up the transition step formula from step 0 to 1
     def transition_formula(self):
-        formula = Node.true()
+        formula = Node.true(self.model)
         for out in self.model.latches:
             next_step_out = out.get_copy()
             self.increment_steps(next_step_out, 1)
@@ -77,7 +75,7 @@ class Generator:
     def increment_steps(self, formula, steps):
         if formula.is_literal():
             literal = formula
-            if literal not in Node.get_constants():
+            if literal not in Node.get_constants(self.model):
                 value = self.model.maximum_variable_index * steps
                 if literal.is_negative_literal():
                     literal.label -= value
@@ -87,63 +85,13 @@ class Generator:
             self.increment_steps(formula.first_argument, steps)
             self.increment_steps(formula.second_argument, steps)
 
-    # simplify formula by removing constants
-    def remove_constants(self, formula):
-        while True:
-            constants = []
-            self.find_literals_in_formula(formula, Node.get_constants(), True, constants)
-            if len(constants) == 0:
-                break
-            else:
-                for constant, first_argument in constants:
-                    replacement_formula = None
-                    if constant.parent is None:
-                        break
-                    if constant == Node.true():
-                        if constant.parent.is_and():
-                            replacement_formula = constant.parent.second_argument if first_argument else constant.parent.first_argument
-                        elif constant.parent.is_or():
-                            replacement_formula = Node.true()
-                    elif constant == Node.false():
-                        if constant.parent.is_and():
-                            replacement_formula = Node.false()
-                        elif constant.parent.is_or():
-                            replacement_formula = constant.parent.second_argument if first_argument else constant.parent.first_argument
-                    replacement_formula.parent = constant.parent.parent
-                    if replacement_formula.parent is None:
-                        formula = replacement_formula
-                    else:
-                        if replacement_formula.parent.first_argument is constant.parent:
-                            replacement_formula.parent.first_argument = replacement_formula
-                        else:
-                            replacement_formula.parent.second_argument = replacement_formula
-        return formula
-
-    # find literals in a formula
-    def find_literals_in_formula(self, formula, literals, included, container, first_argument=True):
-        if formula.is_literal():
-            if included:
-                if formula in literals:
-                    container.append((formula, first_argument))
-            else:
-                if formula not in literals:
-                    container.append((formula, first_argument))
-        else:
-            self.find_literals_in_formula(formula.first_argument, literals, included, container, True)
-            self.find_literals_in_formula(formula.second_argument, literals, included, container, False)
-
     # construct a cnf formula using Tseitin transformation
     def generate_clauses(self, formula):
-        if formula.is_literal():
-            if formula == Node.false():
-                return {('-1',), ('1',)}
-            elif formula == Node.true():
-                return {('1',)}
-        else:
-            self.add_labels(formula)
-            clauses = {(formula.label,)}
-            self.add_equivalences_to_clauses(formula, clauses)
-            return clauses
+        self.add_labels(formula)
+        # force SAT solver to pick the two constants to True and False
+        clauses = {(formula.label,), (self.model.true_index,), (-self.model.false_index,)}
+        self.add_equivalences_to_clauses(formula, clauses)
+        return clauses
 
     # generate the dimacs string
     def build_dimacs(self, clauses):
@@ -238,16 +186,16 @@ class Node:
         return Node(NodeType.LITERAL, None, None, label, None)
 
     @staticmethod
-    def true():
-        return Node.Literal(-1)
+    def true(model):
+        return Node.Literal(model.true_index)
 
     @staticmethod
-    def false():
-        return Node.Literal(1)
+    def false(model):
+        return Node.Literal(model.false_index)
 
     @staticmethod
-    def get_constants():
-        return [Node.true(), Node.false()]
+    def get_constants(model):
+        return [Node.true(model), Node.false(model)]
 
     @staticmethod
     def get_equivalence_formula(first_argument, second_argument):

@@ -12,6 +12,8 @@ class Model:
         self.number_of_outputs = 0
         self.number_of_and_gates = 0
         self.label_running_index = 0
+        self.true_index = 0
+        self.false_index = 0
         self.inputs = {}
         self.latches = {}
         self.outputs = {}
@@ -41,34 +43,43 @@ class Parser:
         header = lines.popleft()
         # create a model and fill in the information from the header
         model = Model()
-        # add 1 because constants are added at index 1
-        model.maximum_variable_index = header[0] + 1
+        model.maximum_variable_index = header[0]
         model.number_of_inputs = header[1]
         model.number_of_latches = header[2]
         model.number_of_outputs = header[3]
         model.number_of_and_gates = header[4]
         # set a start index for the labelling of nodes
         model.label_running_index = model.maximum_variable_index * (self.bound + 1)
+        # set the the indices for the two constants
+        model.label_running_index += 1
+        model.false_index = model.label_running_index
+        model.label_running_index += 1
+        model.true_index = model.label_running_index
         # set the inputs
         for i in range(model.number_of_inputs):
             current_line = lines.popleft()
-            model.inputs[i] = self.literal_object(current_line[0])
+            model.inputs[i] = self.literal_object(current_line[0], model)
         # set the latches
         for i in range(model.number_of_latches):
             current_line = lines.popleft()
-            model.latches[self.literal_object(current_line[0])] = self.literal_object(current_line[1])
+            model.latches[self.literal_object(current_line[0], model)] = self.literal_object(current_line[1], model)
         # set the outputs
         for i in range(model.number_of_outputs):
             current_line = lines.popleft()
-            model.outputs[i] = self.literal_object(current_line[0])
+            model.outputs[i] = self.literal_object(current_line[0], model)
         # set the and gates
         for i in range(model.number_of_and_gates):
             current_line = lines.popleft()
-            model.and_gates[self.literal_object(current_line[0])] = (self.literal_object(current_line[1]), self.literal_object(current_line[2]))
+            model.and_gates[self.literal_object(current_line[0], model)] = \
+                (self.literal_object(current_line[1], model), self.literal_object(current_line[2], model))
         return model
 
     # convert a single literal integer to a literal object
     @staticmethod
-    def literal_object(literal):
-        # add 1 because constants are added at index 1
-        return Node.Literal((literal // 2 + 1) * (-1 if literal % 2 else 1))
+    def literal_object(literal, model):
+        if literal == 0:
+            return Node.false(model)
+        elif literal == 1:
+            return Node.true(model)
+        else:
+            return Node.Literal((literal // 2) * (-1 if literal % 2 else 1))
