@@ -140,8 +140,8 @@ class Generator:
             elif formula == Node.true():
                 return {('1',)}
         else:
-            clauses = {(formula.label,)}
             self.add_labels(formula)
+            clauses = {(formula.label,)}
             self.add_equivalences(formula, clauses)
             return clauses
 
