@@ -16,13 +16,15 @@ class Generator:
         # preprocess the model to use literal objects
         self.preprocess()
         # build syntax tree of formula to check
-        formula = Node.And(self.initial(), Node.And(self.transition(), self.safety()))
+        formula = Node.And(self.equivalences(), Node.And(self.initial(), Node.And(self.transition(), self.safety())))
         # remove constants from formula
         self.remove_constants(formula)
+        # generate a clause set
         clauses = self.generate_clauses(formula)
+        # write the clause set in dimacs style to a file
         self.build_dimacs(clauses)
 
-    # convert a single literal string to a literal object
+    # convert a single literal integer to a literal object
     @staticmethod
     def convert_to_literal_object(literal):
         sign = -1 if bool(literal % 2) else 1
@@ -48,13 +50,23 @@ class Generator:
         for out, inp_0, inp_1 in self.model.and_gates:
             and_gates[self.convert_to_literal_object(out)] = (self.convert_to_literal_object(inp_0), self.convert_to_literal_object(inp_1))
         self.model.and_gates = and_gates
-        self.model.positive_allowed_literals = set(list(self.model.inputs.values()) + list(self.model.latches.keys()) + Node.get_constants())
-        self.model.negative_allowed_literals = set([x.get_negated_copy() for x in self.model.positive_allowed_literals])
-        self.model.allowed_literals = self.model.positive_allowed_literals.union(self.model.negative_allowed_literals)
         # add 1 because constants were added at index 1
         self.model.maximum_variable_index += 1
         self.model.label_start_index = self.model.maximum_variable_index * (self.bound + 1)
         self.model.label_running_index = self.model.label_start_index
+
+    # add the equivalences enforced by the and gates to the formula
+    def equivalences(self):
+        formula = Node.true()
+        for out, (inp_0, inp_1) in self.model.and_gates.items():
+            equivalence = Node.get_equivalence_formula(out.get_copy(), Node.And(inp_0.get_copy(), inp_1.get_copy()))
+            formula = Node.And(formula, equivalence)
+        equivalences = Node.true()
+        for i in range(self.bound + 1):
+            current_step_equivalences = formula.get_copy()
+            self.increment_steps(current_step_equivalences, i)
+            equivalences = Node.And(equivalences, current_step_equivalences)
+        return equivalences
 
     # build up the initial state formula to guarantee that all latches are initialized to zero
     def initial(self):
@@ -66,7 +78,7 @@ class Generator:
     # build up the safety formula which is satisfiable if a bad state has been reached
     def safety(self):
         formula = Node.false()
-        initial_out = self.replace_with_allowed_literals(self.model.outputs[0])
+        initial_out = self.model.outputs[0]
         for i in range(self.bound + 1):
             current_step_out = initial_out.get_copy()
             self.increment_steps(current_step_out, i)
@@ -103,32 +115,9 @@ class Generator:
         for out in self.model.latches:
             next_step_out = out.get_copy()
             self.increment_steps(next_step_out, 1)
-            prev_step_in = self.replace_with_allowed_literals(self.model.latches[out].get_copy())
+            prev_step_in = self.model.latches[out].get_copy()
             transition = Node.get_equivalence_formula(next_step_out, prev_step_in)
             formula = Node.And(formula, transition)
-        return formula
-
-    # only the inputs of the system, outputs of latches and constants occur in the returned formula and their negations
-    def replace_with_allowed_literals(self, formula):
-        formula = Node.And(Node.true(), formula)
-        while True:
-            unallowed_literals = []
-            self.find_literals_in_formula(formula, self.model.allowed_literals, False, unallowed_literals)
-            if len(unallowed_literals) == 0:
-                break
-            else:
-                for unallowed_literal, first_argument in unallowed_literals:
-                    if unallowed_literal in self.model.and_gates:
-                        inp_0, inp_1 = map(Node.get_copy, self.model.and_gates[unallowed_literal])
-                        replacement_formula = Node.And(inp_0, inp_1)
-                    else:
-                        inp_0, inp_1 = map(Node.get_copy, self.model.and_gates[unallowed_literal.get_negated_copy()])
-                        replacement_formula = Node.And(inp_0, inp_1).get_negated_copy()
-                    replacement_formula.parent = unallowed_literal.parent
-                    if first_argument:
-                        replacement_formula.parent.first_argument = replacement_formula
-                    else:
-                        replacement_formula.parent.second_argument = replacement_formula
         return formula
 
     # simplify formula by removing constants

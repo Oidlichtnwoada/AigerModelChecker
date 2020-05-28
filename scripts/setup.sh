@@ -1,5 +1,5 @@
 #!/bin/bash
-sudo apt update && sudo apt install python3.8
+sudo apt update && sudo apt install pypy3
 cd ../picosat && ./configure && make clean && ./configure && make
 cd ../aiger && ./configure && make clean && ./configure && make
 cd ../minisat/core && make clean && make
