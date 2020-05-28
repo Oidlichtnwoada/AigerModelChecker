@@ -142,7 +142,7 @@ class Generator:
         else:
             self.add_labels(formula)
             clauses = {(formula.label,)}
-            self.add_equivalences(formula, clauses)
+            self.add_equivalences_to_clauses(formula, clauses)
             return clauses
 
     # generate the dimacs string
@@ -153,19 +153,15 @@ class Generator:
 
     # label all internal nodes in the syntax tree of the formula
     def add_labels(self, formula):
-        if formula.is_literal():
-            return
-        else:
+        if not formula.is_literal():
             self.model.label_running_index += 1
             formula.label = self.model.label_running_index
             self.add_labels(formula.first_argument)
             self.add_labels(formula.second_argument)
 
     # generate clauses for all the equivalences used in the Tseitin transformation
-    def add_equivalences(self, formula, clauses):
-        if formula.is_literal():
-            return
-        else:
+    def add_equivalences_to_clauses(self, formula, clauses):
+        if not formula.is_literal():
             label = formula.label
             first_argument = formula.first_argument.label
             second_argument = formula.second_argument.label
@@ -173,11 +169,11 @@ class Generator:
             clauses.add((label * -1 * factor, first_argument * factor, second_argument * factor))
             clauses.add((label * factor, first_argument * -1 * factor))
             clauses.add((label * factor, second_argument * -1 * factor))
-            self.add_equivalences(formula.first_argument, clauses)
-            self.add_equivalences(formula.second_argument, clauses)
+            self.add_equivalences_to_clauses(formula.first_argument, clauses)
+            self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
 
-# the Node object for building the formulas
+# the Node object for building the formula to be checked with the SAT solver
 class Node:
     def __init__(self, node_type, first_argument, second_argument, label, parent):
         self.node_type = node_type
@@ -226,12 +222,8 @@ class Node:
     def __hash__(self):
         return self.label
 
-    # count the nodes in formula
     def count_nodes_in_formula(self):
-        if self.is_literal():
-            return 1
-        else:
-            return 1 + self.first_argument.count_nodes_in_formula() + self.second_argument.count_nodes_in_formula()
+        return 1 if self.is_literal() else 1 + self.first_argument.count_nodes_in_formula() + self.second_argument.count_nodes_in_formula()
 
     @staticmethod
     def And(first_argument, second_argument):
@@ -257,7 +249,6 @@ class Node:
     def get_constants():
         return [Node.true(), Node.false()]
 
-    # build equivalence formula
     @staticmethod
     def get_equivalence_formula(first_argument, second_argument):
         first_argument = first_argument.get_copy()
