@@ -225,18 +225,18 @@ struct Checker : public ProofTraverser {
     vec<vec<Lit> >  clauses;
 
     void root   (const vec<Lit>& c) {
-        //**/printf("%d: ROOT", clauses.size()); for (int i = 0; i < c.size(); i++) printf(" %s%d", sign(c[i])?"-":"", var(c[i])+1); printf("\n");
+        printf("%d: ROOT", clauses.size()); for (int i = 0; i < c.size(); i++) printf(" %s%d", sign(c[i])?"-":"", var(c[i])+1); printf("\n");
         clauses.push();
         c.copyTo(clauses.last()); }
 
     void chain  (const vec<ClauseId>& cs, const vec<Var>& xs) {
-        //**/printf("%d: CHAIN %d", clauses.size(), cs[0]); for (int i = 0; i < xs.size(); i++) printf(" [%d] %d", xs[i]+1, cs[i+1]);
+        printf("%d: CHAIN %d", clauses.size(), cs[0]); for (int i = 0; i < xs.size(); i++) printf(" [%d] %d", xs[i]+1, cs[i+1]);
         clauses.push();
         vec<Lit>& c = clauses.last();
         clauses[cs[0]].copyTo(c);
         for (int i = 0; i < xs.size(); i++)
             resolve(c, clauses[cs[i+1]], xs[i]);
-        //**/printf(" =>"); for (int i = 0; i < c.size(); i++) printf(" %s%d", sign(c[i])?"-":"", var(c[i])+1); printf("\n");
+        printf(" =>"); for (int i = 0; i < c.size(); i++) printf(" %s%d", sign(c[i])?"-":"", var(c[i])+1); printf("\n");
         }
 
     void deleted(ClauseId c) {
