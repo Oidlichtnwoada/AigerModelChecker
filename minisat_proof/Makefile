@@ -13,7 +13,7 @@ PCOBJS    = $(addsuffix p,  $(COBJS))
 DCOBJS    = $(addsuffix d,  $(COBJS))
 RCOBJS    = $(addsuffix r,  $(COBJS))
 
-EXEC      = minisat
+EXEC      = minisat_proof
 
 CXX       = g++
 CFLAGS    = -Wall -ffloat-store
