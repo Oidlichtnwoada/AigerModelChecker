@@ -73,9 +73,9 @@ class Generator:
     # build up the safety formula which is satisfiable if a bad state has been reached
     def safety(self):
         formula = Node.false()
-        out = self.model.outputs[0]
+        initial_out = self.replace_with_allowed_literals(self.model.outputs[0])
         for i in range(self.bound + 1):
-            current_step_out = self.replace_with_allowed_literals(out.get_copy())
+            current_step_out = initial_out.get_copy()
             self.increment_steps(current_step_out, i)
             formula = Node(NodeType.OR, formula, current_step_out)
         return formula
