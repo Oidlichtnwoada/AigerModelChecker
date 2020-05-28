@@ -9,7 +9,7 @@ class BoundedModelChecker:
     def __init__(self, filename, bound, interpolation):
         with open(f'../models/{filename}.aag') as file:
             self.aiger = file.read()
-        parser = Parser(self.aiger)
+        parser = Parser(self.aiger, bound)
         self.model = parser.parse()
         if not interpolation:
             generator = Generator(self.model, bound)

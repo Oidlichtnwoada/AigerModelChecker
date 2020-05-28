@@ -1,7 +1,9 @@
 from collections import deque
 
+from dimacs_generator import Node
 
-# structure for the model object
+
+# structure for the model object which is used to create the formula
 class Model:
     def __init__(self):
         self.maximum_variable_index = 0
@@ -9,46 +11,19 @@ class Model:
         self.number_of_latches = 0
         self.number_of_outputs = 0
         self.number_of_and_gates = 0
-        self.inputs = []
-        self.latches = []
-        self.outputs = []
-        self.and_gates = []
+        self.label_running_index = 0
+        self.inputs = {}
+        self.latches = {}
+        self.outputs = {}
+        self.and_gates = {}
 
 
 class Parser:
-    def __init__(self, aiger):
+    def __init__(self, aiger, bound):
         self.aiger = aiger
+        self.bound = bound
 
-    def parse(self):
-        # preprocess the input file to a deque
-        lines = self.preprocess()
-        # the header is the first line in the file
-        header = lines.popleft()
-        # create a model and fill in the information from the header
-        model = Model()
-        model.maximum_variable_index = header[0]
-        model.number_of_inputs = header[1]
-        model.number_of_latches = header[2]
-        model.number_of_outputs = header[3]
-        model.number_of_and_gates = header[4]
-        # set the inputs
-        for i in range(model.number_of_inputs):
-            current_line = lines.popleft()
-            model.inputs.append(current_line[0])
-        # set the latches
-        for i in range(model.number_of_latches):
-            current_line = lines.popleft()
-            model.latches.append((current_line[0], current_line[1]))
-        # set the outputs
-        for i in range(model.number_of_outputs):
-            current_line = lines.popleft()
-            model.outputs.append(current_line[0])
-        # set the and gates
-        for i in range(model.number_of_and_gates):
-            current_line = lines.popleft()
-            model.and_gates.append((current_line[0], current_line[1], current_line[2]))
-        return model
-
+    # file is in right structure because it was processed with aigtoaig
     def preprocess(self):
         # remove string 'aig' from the input file to allow later conversion to integers
         self.aiger = self.aiger.replace('aag', '')
@@ -58,3 +33,42 @@ class Parser:
         # return a deque of lists of integers for every line in the input file and filter out an optional symbol table
         return deque([list(map(int, x.strip().split(' '))) for x in self.aiger.strip().split('\n') if
                       not x.strip().startswith(('i', 'l', 'o'))])
+
+    def parse(self):
+        # preprocess the input file to a deque
+        lines = self.preprocess()
+        # the header is the first line in the file
+        header = lines.popleft()
+        # create a model and fill in the information from the header
+        model = Model()
+        # add 1 because constants are added at index 1
+        model.maximum_variable_index = header[0] + 1
+        model.number_of_inputs = header[1]
+        model.number_of_latches = header[2]
+        model.number_of_outputs = header[3]
+        model.number_of_and_gates = header[4]
+        # set a start index for the labelling of nodes
+        model.label_running_index = model.maximum_variable_index * (self.bound + 1)
+        # set the inputs
+        for i in range(model.number_of_inputs):
+            current_line = lines.popleft()
+            model.inputs[i] = self.literal_object(current_line[0])
+        # set the latches
+        for i in range(model.number_of_latches):
+            current_line = lines.popleft()
+            model.latches[self.literal_object(current_line[0])] = self.literal_object(current_line[1])
+        # set the outputs
+        for i in range(model.number_of_outputs):
+            current_line = lines.popleft()
+            model.outputs[i] = self.literal_object(current_line[0])
+        # set the and gates
+        for i in range(model.number_of_and_gates):
+            current_line = lines.popleft()
+            model.and_gates[self.literal_object(current_line[0])] = (self.literal_object(current_line[1]), self.literal_object(current_line[2]))
+        return model
+
+    # convert a single literal integer to a literal object
+    @staticmethod
+    def literal_object(literal):
+        # add 1 because constants are added at index 1
+        return Node.Literal((literal // 2 + 1) * (-1 if literal % 2 else 1))

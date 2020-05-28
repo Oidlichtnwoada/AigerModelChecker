@@ -13,8 +13,6 @@ class Generator:
         self.bound = bound
 
     def generate(self):
-        # preprocess the model to use literal objects
-        self.preprocess()
         # build syntax tree of formula to check
         formula = Node.And(self.equivalences(), Node.And(self.initial(), Node.And(self.transition(), self.safety())))
         # remove constants from formula
@@ -23,37 +21,6 @@ class Generator:
         clauses = self.generate_clauses(formula)
         # write the clause set in dimacs style to a file
         self.build_dimacs(clauses)
-
-    # convert a single literal integer to a literal object
-    @staticmethod
-    def convert_to_literal_object(literal):
-        sign = -1 if bool(literal % 2) else 1
-        # add 1 because constants were added at index 1
-        index = (literal // 2) + 1
-        return Node.Literal(index * sign)
-
-    # change the list structure to hash maps to speed up searching
-    def preprocess(self):
-        inputs = {}
-        for index, inp in enumerate(self.model.inputs):
-            inputs[index] = self.convert_to_literal_object(inp)
-        self.model.inputs = inputs
-        latches = {}
-        for out, inp in self.model.latches:
-            latches[self.convert_to_literal_object(out)] = self.convert_to_literal_object(inp)
-        self.model.latches = latches
-        outputs = {}
-        for index, out in enumerate(self.model.outputs):
-            outputs[index] = self.convert_to_literal_object(out)
-        self.model.outputs = outputs
-        and_gates = {}
-        for out, inp_0, inp_1 in self.model.and_gates:
-            and_gates[self.convert_to_literal_object(out)] = (self.convert_to_literal_object(inp_0), self.convert_to_literal_object(inp_1))
-        self.model.and_gates = and_gates
-        # add 1 because constants were added at index 1
-        self.model.maximum_variable_index += 1
-        self.model.label_start_index = self.model.maximum_variable_index * (self.bound + 1)
-        self.model.label_running_index = self.model.label_start_index
 
     # add the equivalences enforced by the and gates to the formula
     def equivalences(self):
