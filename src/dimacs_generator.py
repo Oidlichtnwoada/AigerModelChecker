@@ -79,7 +79,7 @@ class Generator:
             literal = formula
             if literal not in Node.get_constants():
                 value = self.model.maximum_variable_index * steps
-                if literal.label < 0:
+                if literal.is_negative_literal():
                     literal.label -= value
                 else:
                     literal.label += value
@@ -163,7 +163,7 @@ class Generator:
                             replacement_formula.parent.second_argument = replacement_formula
         return formula
 
-    # find constants in a formula
+    # find literals in a formula
     def find_literals_in_formula(self, formula, literals, included, container, first_argument=True):
         if formula.is_literal():
             if included:
@@ -260,6 +260,12 @@ class Node:
     def is_literal(self):
         return self.node_type == NodeType.LITERAL
 
+    def is_negative_literal(self):
+        return self.node_type == NodeType.LITERAL and self.label < 0
+
+    def is_positive_literal(self):
+        return self.node_type == NodeType.LITERAL and self.label > 0
+
     def __eq__(self, other):
         return self.label == other.label
 
@@ -271,7 +277,7 @@ class Node:
         if self.is_literal():
             return 1
         else:
-            return self.first_argument.count_nodes_in_formula() + self.second_argument.count_nodes_in_formula()
+            return 1 + self.first_argument.count_nodes_in_formula() + self.second_argument.count_nodes_in_formula()
 
     @staticmethod
     def And(first_argument, second_argument):
