@@ -12,9 +12,12 @@ class Generator:
         self.model = model
         self.bound = bound
 
-    def generate(self):
+    def generate_bounded(self):
         # build syntax tree of formula to check
         formula = Node.And(self.equivalences(), Node.And(self.initial(), Node.And(self.transition(), self.safety())))
+        self.generate_dimacs(formula)
+
+    def generate_dimacs(self, formula):
         # generate a clause set
         clauses = self.generate_clauses(formula)
         # write the clause set in dimacs style to a file
@@ -120,6 +123,13 @@ class Generator:
             self.add_equivalences_to_clauses(formula.first_argument, clauses)
             self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
+    # compute next_states_formula
+    def compute_next_states_formula(self, previous_states_formula, proof_tree):
+        return previous_states_formula.get_copy()
+
+    def generate_proof_tree(self, output):
+        pass
+
 
 # the Node object for building the syntax tree of the formula to be checked with the SAT solver
 class Node:
@@ -163,6 +173,23 @@ class Node:
 
     def is_positive_literal(self):
         return self.node_type == NodeType.LITERAL and self.label > 0
+
+    def equals(self, other):
+        if self.is_and():
+            if other.is_and():
+                return self.first_argument.equals(other.first_argument) and self.second_argument.equals(other.second_argument)
+            else:
+                return False
+        elif self.is_or():
+            if other.is_or():
+                return self.first_argument.equals(other.first_argument) and self.second_argument.equals(other.second_argument)
+            else:
+                return False
+        elif self.is_literal():
+            if other.is_literal():
+                return self.label == other.label
+            else:
+                return False
 
     def __eq__(self, other):
         return self.label == other.label
