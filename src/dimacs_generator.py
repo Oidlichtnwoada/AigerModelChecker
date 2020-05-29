@@ -121,8 +121,8 @@ class Generator:
             self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
     # compute next_states_formula
-    def compute_interpolant(self, previous_states_formula, proof_tree):
-        return previous_states_formula.get_copy()
+    def compute_interpolant(self, first_clauses, second_clauses, proof_tree):
+        return Node.true()
 
     def generate_proof_tree(self, output):
         output = output[output.find('...') + len('...'):].strip()

@@ -27,9 +27,9 @@ class BoundedModelChecker:
             safety_formula = generator.safety()
             current_interpolant = Node.true(self.model)
             while True:
-                first_formula = Node.And(equivalences_formula, Node.And(initial_formula, transition_formula))
+                first_formula = Node.And(equivalences_formula.get_copy(), Node.And(initial_formula.get_copy(), transition_formula.get_copy()))
                 first_clauses = generator.generate_clauses(first_formula)
-                second_formula = Node.And(equivalences_formula, safety_formula)
+                second_formula = Node.And(equivalences_formula.get_copy(), safety_formula.get_copy())
                 second_clauses = generator.generate_clauses(second_formula)
                 all_clauses = first_clauses.union(second_clauses)
                 generator.build_dimacs(all_clauses)
