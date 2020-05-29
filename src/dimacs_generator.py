@@ -120,10 +120,11 @@ class Generator:
             self.add_equivalences_to_clauses(formula.first_argument, clauses)
             self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
-    # compute next_states_formula
+    # compute interpolant out of two clause sets and a proof tree
     def compute_interpolant(self, first_clauses, second_clauses, proof_tree):
         return Node.true(self.model)
 
+    # generate a proof tree out of SAT solver output
     def generate_proof_tree(self, output):
         output = output[output.find('...') + len('...'):].strip()
         leaves = []
