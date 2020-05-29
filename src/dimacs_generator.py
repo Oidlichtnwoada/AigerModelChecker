@@ -15,9 +15,6 @@ class Generator:
     def generate_bounded(self):
         # build syntax tree of formula to check
         formula = Node.And(self.equivalences(), Node.And(self.initial(), Node.And(self.transition(), self.safety())))
-        self.generate_dimacs(formula)
-
-    def generate_dimacs(self, formula):
         # generate a clause set
         clauses = self.generate_clauses(formula)
         # write the clause set in dimacs style to a file
@@ -124,10 +121,14 @@ class Generator:
             self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
     # compute next_states_formula
-    def compute_next_states_formula(self, previous_states_formula, proof_tree):
+    def compute_interpolant(self, previous_states_formula, proof_tree):
         return previous_states_formula.get_copy()
 
     def generate_proof_tree(self, output):
+        output = output[output.find('...') + len('...'):].strip()
+        leaves = []
+        with open('../dimacs/proof_tree.txt', 'w') as file:
+            file.write(output)
         pass
 
 
