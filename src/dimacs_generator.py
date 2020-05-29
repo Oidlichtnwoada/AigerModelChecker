@@ -126,11 +126,39 @@ class Generator:
 
     # generate a proof tree out of SAT solver output
     def generate_proof_tree(self, output):
-        output = output[output.find('...') + len('...'):].strip()
-        leaves = []
+        output = output[output.find('...') + len('...'):].strip().replace('Final clause: <empty>', '').strip() + ' 0'
+        input_clauses = {}
+        for line in output.split('\n'):
+            if 'ROOT' in line:
+                number = int(line[:line.find(':')].strip())
+                clause = tuple(map(int, line[line.find('ROOT') + len('ROOT') + 1:].strip().split(' ')))
+                input_clauses[number] = clause
+        derived_clauses = {}
+        for line in output.split('\n'):
+            if 'CHAIN' in line:
+                number = int(line[:line.find(':')].strip())
+                path = tuple(map(int, line[line.find('CHAIN') + len('CHAIN') + 1:line.find(' =>')].replace('[', '').replace(']', '').strip().split(' ')))
+                clause = tuple(map(int, line[line.find('=>') + len('=>') + 1:].strip().split(' ')))
+                derived_clauses[number] = (clause, path)
         with open('../dimacs/proof_tree.txt', 'w') as file:
             file.write(output)
+        proof_tree = Clause(output.count('\n'), ())
+        self.fill_proof_tree(proof_tree, input_clauses, derived_clauses)
         return Node.true(self.model)
+
+    # fill the proof tree
+    def fill_proof_tree(self, proof_tree, input_clauses, derived_clauses):
+        pass
+
+
+class Clause:
+    def __init__(self, index, clause, children=None, parents=None, resolved_on_literal=None, label=None):
+        self.number = index
+        self.clause = clause
+        self.children = children
+        self.parents = parents
+        self.resolved_on_literal = resolved_on_literal
+        self.label = label
 
 
 # the Node object for building the syntax tree of the formula to be checked with the SAT solver
