@@ -122,14 +122,14 @@ class Generator:
 
     # compute next_states_formula
     def compute_interpolant(self, first_clauses, second_clauses, proof_tree):
-        return Node.true()
+        return Node.true(self.model)
 
     def generate_proof_tree(self, output):
         output = output[output.find('...') + len('...'):].strip()
         leaves = []
         with open('../dimacs/proof_tree.txt', 'w') as file:
             file.write(output)
-        pass
+        return Node.true(self.model)
 
 
 # the Node object for building the syntax tree of the formula to be checked with the SAT solver
