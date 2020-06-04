@@ -156,6 +156,12 @@ class Generator:
             else:
                 return Node.Or(left_parent_label, right_parent_label)
 
+    def get_proof_tree_size(self, clause, proof_tree):
+        if len(clause[1]) > 0:
+            return 1 + self.get_proof_tree_size(proof_tree[clause[1][0]], proof_tree) + self.get_proof_tree_size(proof_tree[clause[1][2]], proof_tree)
+        else:
+            return 1
+
     # generate a proof tree out of SAT solver output
     @staticmethod
     def generate_proof_tree(output):
