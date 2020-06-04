@@ -12,7 +12,7 @@ class Generator:
         self.model = model
         self.bound = bound
 
-    def generate_bounded(self):
+    def generate_dimacs(self):
         # build syntax tree of formula to check
         formula = Node.And(self.equivalences(), Node.And(self.initial(), Node.And(self.transition(), self.safety())))
         # generate a clause set
@@ -122,43 +122,57 @@ class Generator:
 
     # compute interpolant out of two clause sets and a proof tree
     def compute_interpolant(self, first_clauses, second_clauses, proof_tree):
-        return Node.true(self.model)
+        return Node.false(self.model)
 
     # generate a proof tree out of SAT solver output
     def generate_proof_tree(self, output):
-        output = output[output.find('...') + len('...'):].strip().replace('Final clause: <empty>', '').strip() + ' 0'
-        input_clauses = {}
+        output = output[output.find('...') + len('...'):].replace('Final clause: <empty>', '').strip() + ' 0'
+        empty_clause_index = output.count('\n')
+        running_clause_index = empty_clause_index
+        clauses = {}
         for line in output.split('\n'):
+            number = int(line[:line.find(':')].strip())
             if 'ROOT' in line:
-                number = int(line[:line.find(':')].strip())
-                clause = tuple(map(int, line[line.find('ROOT') + len('ROOT') + 1:].strip().split(' ')))
-                input_clauses[number] = clause
-        derived_clauses = {}
-        for line in output.split('\n'):
+                clause = tuple(map(int, line[line.find('ROOT') + len('ROOT'):].strip().split(' ')))
+                clauses[number] = (clause, ())
             if 'CHAIN' in line:
-                number = int(line[:line.find(':')].strip())
-                path = tuple(map(int, line[line.find('CHAIN') + len('CHAIN') + 1:line.find(' =>')].replace('[', '').replace(']', '').strip().split(' ')))
-                clause = tuple(map(int, line[line.find('=>') + len('=>') + 1:].strip().split(' ')))
-                derived_clauses[number] = (clause, path)
-        with open('../dimacs/proof_tree.txt', 'w') as file:
-            file.write(output)
-        proof_tree = Clause(output.count('\n'), ())
-        self.fill_proof_tree(proof_tree, input_clauses, derived_clauses)
-        return Node.true(self.model)
+                clause = tuple(map(int, line[line.find('=>') + len('=>'):].strip().split(' ')))
+                path = tuple(map(int, line[line.find('CHAIN') + len('CHAIN'):line.find('=>')].replace('[', '').replace(']', '').strip().split(' ')))
+                while len(path) > 3:
+                    running_clause_index += 1
+                    derived_clause = tuple([x for x in clauses[path[0]][0] + clauses[path[2]][0] if abs(x) != path[1]])
+                    derived_path = path[:3]
+                    clauses[running_clause_index] = (derived_clause, derived_path)
+                    path = (running_clause_index,) + path[3:]
+                clauses[number] = (clause, path)
+        proof_tree = Clause(empty_clause_index, (), clauses[empty_clause_index][1][1], None)
+        self.fill_parents(proof_tree, clauses)
+        return proof_tree
 
     # fill the proof tree
-    def fill_proof_tree(self, proof_tree, input_clauses, derived_clauses):
-        pass
+    def fill_parents(self, clause, clauses):
+        if clause.resolved_on_literal is None:
+            return
+        clause_path = clauses[clause.index][1]
+        left_parent_clause = clauses[clause_path[0]]
+        left_parent = Clause(clause_path[0], left_parent_clause[0], left_parent_clause[1][1] if len(left_parent_clause[1]) > 0 else None, clause)
+        right_parent_clause = clauses[clause_path[2]]
+        right_parent = Clause(clause_path[2], right_parent_clause[0], right_parent_clause[1][1] if len(right_parent_clause[1]) > 0 else None, clause)
+        clause.left_parent = left_parent
+        clause.right_parent = right_parent
+        self.fill_parents(left_parent, clauses)
+        self.fill_parents(right_parent, clauses)
 
 
 class Clause:
-    def __init__(self, index, clause, children=None, parents=None, resolved_on_literal=None, label=None):
-        self.number = index
+    def __init__(self, index, clause, resolved_on_literal, child):
+        self.index = index
         self.clause = clause
-        self.children = children
-        self.parents = parents
         self.resolved_on_literal = resolved_on_literal
-        self.label = label
+        self.child = child
+        self.left_parent = None
+        self.right_parent = None
+        self.label = None
 
 
 # the Node object for building the syntax tree of the formula to be checked with the SAT solver

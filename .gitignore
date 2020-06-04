@@ -5,5 +5,4 @@ minisat_core
 minisat_simp
 minisat_proof
 dimacs.txt
-*.aag
 __pycache__
