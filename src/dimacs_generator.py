@@ -12,7 +12,7 @@ class Generator:
         self.model = model
         self.bound = bound
 
-    def generate_dimacs(self):
+    def generate_bounded_model_checking_dimacs(self):
         # build syntax tree of formula to check
         formula = Node.And(self.equivalences(), Node.And(self.initial(), Node.And(self.transition(), self.safety())))
         # generate a clause set
@@ -21,13 +21,17 @@ class Generator:
         self.build_dimacs(clauses)
 
     # add the equivalences enforced by the and gates to the formula
-    def equivalences(self):
+    def equivalences(self, start=None, end=None):
+        if start is None:
+            start = 0
+        if end is None:
+            end = self.bound
         equivalences = Node.true(self.model)
         for out, (inp_0, inp_1) in self.model.and_gates.items():
             equivalence = Node.get_equivalence_formula(out.get_copy(), Node.And(inp_0.get_copy(), inp_1.get_copy()))
             equivalences = Node.And(equivalences, equivalence)
         all_equivalences = Node.true(self.model)
-        for i in range(self.bound + 1):
+        for i in range(start, end + 1):
             current_step_equivalences = equivalences.get_copy()
             self.increment_steps(current_step_equivalences, i)
             all_equivalences = Node.And(all_equivalences, current_step_equivalences)
@@ -51,10 +55,14 @@ class Generator:
         return formula
 
     # build up the transition formula
-    def transition(self):
+    def transition(self, start=None, end=None):
+        if start is None:
+            start = 0
+        if end is None:
+            end = self.bound - 1
         formula = Node.true(self.model)
         transition_formula = self.transition_formula()
-        for i in range(self.bound):
+        for i in range(start, end + 1):
             transition_step = transition_formula.get_copy()
             self.increment_steps(transition_step, i)
             formula = Node.And(formula, transition_step)
@@ -217,23 +225,6 @@ class Node:
 
     def is_positive_literal(self):
         return self.node_type == NodeType.LITERAL and self.label > 0
-
-    def equals(self, other):
-        if self.is_and():
-            if other.is_and():
-                return self.first_argument.equals(other.first_argument) and self.second_argument.equals(other.second_argument)
-            else:
-                return False
-        elif self.is_or():
-            if other.is_or():
-                return self.first_argument.equals(other.first_argument) and self.second_argument.equals(other.second_argument)
-            else:
-                return False
-        elif self.is_literal():
-            if other.is_literal():
-                return self.label == other.label
-            else:
-                return False
 
     def __eq__(self, other):
         return self.label == other.label
