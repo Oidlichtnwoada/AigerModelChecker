@@ -141,14 +141,14 @@ class Generator:
         for line in output.split('\n'):
             number = int(line[:line.find(':')].strip())
             if 'ROOT' in line:
-                clause = tuple(map(int, line[line.find('ROOT') + len('ROOT'):].strip().split(' ')))
+                clause = tuple(sorted(map(int, line[line.find('ROOT') + len('ROOT'):].strip().split(' '))))
                 clauses[number] = (clause, ())
             if 'CHAIN' in line:
-                clause = tuple(map(int, line[line.find('=>') + len('=>'):].strip().split(' ')))
+                clause = tuple(sorted(map(int, line[line.find('=>') + len('=>'):].strip().split(' '))))
                 path = tuple(map(int, line[line.find('CHAIN') + len('CHAIN'):line.find('=>')].replace('[', '').replace(']', '').strip().split(' ')))
                 while len(path) > 3:
                     running_clause_index += 1
-                    derived_clause = tuple([x for x in clauses[path[0]][0] + clauses[path[2]][0] if abs(x) != path[1]])
+                    derived_clause = tuple(sorted([x for x in clauses[path[0]][0] + clauses[path[2]][0] if abs(x) != path[1]]))
                     derived_path = path[:3]
                     clauses[running_clause_index] = (derived_clause, derived_path)
                     path = (running_clause_index,) + path[3:]
