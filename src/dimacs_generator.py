@@ -129,47 +129,37 @@ class Generator:
             self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
     # compute interpolant out of two clause sets and a proof tree
-    def compute_interpolant(self, first_clauses, second_clauses, proof_tree):
+    def compute_interpolant(self, first_clauses, second_clauses, proof_tree, empty_clause_index):
+        first_clauses = set([tuple(sorted(x)) for x in first_clauses])
+        second_clauses = set([tuple(sorted(x)) for x in second_clauses])
+        return self.compute_label(proof_tree[empty_clause_index], first_clauses, second_clauses, proof_tree)
+
+    def compute_label(self, clause, first_clauses, second_clauses, proof_tree):
         return Node.false(self.model)
 
     # generate a proof tree out of SAT solver output
-    def generate_proof_tree(self, output):
+    @staticmethod
+    def generate_proof_tree(output):
         output = output[output.find('...') + len('...'):].replace('Final clause: <empty>', '').strip() + ' 0'
         empty_clause_index = output.count('\n')
         running_clause_index = empty_clause_index
-        clauses = {}
+        proof_tree = {}
         for line in output.split('\n'):
             number = int(line[:line.find(':')].strip())
             if 'ROOT' in line:
                 clause = tuple(sorted(map(int, line[line.find('ROOT') + len('ROOT'):].strip().split(' '))))
-                clauses[number] = (clause, ())
+                proof_tree[number] = (clause, ())
             if 'CHAIN' in line:
                 clause = tuple(sorted(map(int, line[line.find('=>') + len('=>'):].strip().split(' '))))
                 path = tuple(map(int, line[line.find('CHAIN') + len('CHAIN'):line.find('=>')].replace('[', '').replace(']', '').strip().split(' ')))
                 while len(path) > 3:
                     running_clause_index += 1
-                    derived_clause = tuple(sorted([x for x in clauses[path[0]][0] + clauses[path[2]][0] if abs(x) != path[1]]))
+                    derived_clause = tuple(sorted([x for x in proof_tree[path[0]][0] + proof_tree[path[2]][0] if abs(x) != path[1]]))
                     derived_path = path[:3]
-                    clauses[running_clause_index] = (derived_clause, derived_path)
+                    proof_tree[running_clause_index] = (derived_clause, derived_path)
                     path = (running_clause_index,) + path[3:]
-                clauses[number] = (clause, path)
-        proof_tree = Clause(empty_clause_index, (), clauses[empty_clause_index][1][1], None)
-        self.fill_parents(proof_tree, clauses)
-        return proof_tree
-
-    # fill the proof tree
-    def fill_parents(self, clause, clauses):
-        if clause.resolved_on_literal is None:
-            return
-        clause_path = clauses[clause.index][1]
-        left_parent_clause = clauses[clause_path[0]]
-        left_parent = Clause(clause_path[0], left_parent_clause[0], left_parent_clause[1][1] if len(left_parent_clause[1]) > 0 else None, clause)
-        right_parent_clause = clauses[clause_path[2]]
-        right_parent = Clause(clause_path[2], right_parent_clause[0], right_parent_clause[1][1] if len(right_parent_clause[1]) > 0 else None, clause)
-        clause.left_parent = left_parent
-        clause.right_parent = right_parent
-        self.fill_parents(left_parent, clauses)
-        self.fill_parents(right_parent, clauses)
+                proof_tree[number] = (clause, path)
+        return proof_tree, empty_clause_index
 
 
 class Clause:
