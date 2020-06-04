@@ -134,6 +134,7 @@ class Generator:
         second_clauses = set([tuple(sorted(x)) for x in second_clauses])
         return self.compute_label(proof_tree[empty_clause_index], first_clauses, second_clauses, proof_tree)
 
+    # compute a label of some clause in the proof_tree
     def compute_label(self, clause, first_clauses, second_clauses, proof_tree):
         return Node.false(self.model)
 
