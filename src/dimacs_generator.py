@@ -132,11 +132,29 @@ class Generator:
     def compute_interpolant(self, first_clauses, second_clauses, proof_tree, empty_clause_index):
         first_clauses = set([tuple(sorted(x)) for x in first_clauses])
         second_clauses = set([tuple(sorted(x)) for x in second_clauses])
-        return self.compute_label(proof_tree[empty_clause_index], first_clauses, second_clauses, proof_tree)
+        second_variables = set()
+        for clause in second_clauses:
+            for literal in clause:
+                second_variables.add(abs(literal))
+        return self.compute_label(proof_tree[empty_clause_index], first_clauses, second_clauses, second_variables, proof_tree)
 
     # compute a label of some clause in the proof_tree
-    def compute_label(self, clause, first_clauses, second_clauses, proof_tree):
-        return Node.false(self.model)
+    def compute_label(self, clause, first_clauses, second_clauses, second_variables, proof_tree):
+        if clause[0] in first_clauses:
+            formula = Node.false(self.model)
+            for literal in [x for x in clause[0] if abs(x) in second_variables]:
+                formula = Node.Or(formula, Node.Literal(literal))
+            return formula
+        elif clause[0] in second_clauses:
+            return Node.true(self.model)
+        else:
+            resolved_on_variable = clause[1][1]
+            left_parent_label = self.compute_label(proof_tree[clause[1][0]], first_clauses, second_clauses, second_variables, proof_tree)
+            right_parent_label = self.compute_label(proof_tree[clause[1][2]], first_clauses, second_clauses, second_variables, proof_tree)
+            if abs(resolved_on_variable) in second_variables:
+                return Node.And(left_parent_label, right_parent_label)
+            else:
+                return Node.Or(left_parent_label, right_parent_label)
 
     # generate a proof tree out of SAT solver output
     @staticmethod
@@ -161,17 +179,6 @@ class Generator:
                     path = (running_clause_index,) + path[3:]
                 proof_tree[number] = (clause, path)
         return proof_tree, empty_clause_index
-
-
-class Clause:
-    def __init__(self, index, clause, resolved_on_literal, child):
-        self.index = index
-        self.clause = clause
-        self.resolved_on_literal = resolved_on_literal
-        self.child = child
-        self.left_parent = None
-        self.right_parent = None
-        self.label = None
 
 
 # the Node object for building the syntax tree of the formula to be checked with the SAT solver
