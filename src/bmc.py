@@ -1,5 +1,5 @@
 from subprocess import run, PIPE
-from sys import argv
+from sys import argv, setrecursionlimit
 
 from aiger_parser import Parser, Node
 from dimacs_generator import Generator
@@ -76,5 +76,6 @@ class BoundedModelChecker:
             current_bound += 10
 
 
+setrecursionlimit(1000000000)
 bmc = BoundedModelChecker(argv[1], int(argv[2]), bool(int(argv[3])))
 bmc.start()

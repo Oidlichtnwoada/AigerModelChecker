@@ -136,10 +136,12 @@ class Generator:
         for clause in second_clauses:
             for literal in clause:
                 second_variables.add(abs(literal))
-        return self.compute_label((), first_clauses, second_clauses, second_variables, proof_tree, {})
+        labels = {}
+        self.compute_labels((), first_clauses, second_clauses, second_variables, proof_tree, labels)
+        return labels[()]
 
     # compute a label of some clause in the proof_tree
-    def compute_label(self, clause, first_clauses, second_clauses, second_variables, proof_tree, labels):
+    def compute_labels(self, clause, first_clauses, second_clauses, second_variables, proof_tree, labels):
         if clause not in labels:
             if clause in first_clauses:
                 label = Node.false(self.model)
@@ -149,14 +151,15 @@ class Generator:
                 label = Node.true(self.model)
             else:
                 resolved_on_variable = proof_tree[clause][1]
-                left_parent_label = self.compute_label(proof_tree[clause][0], first_clauses, second_clauses, second_variables, proof_tree, labels)
-                right_parent_label = self.compute_label(proof_tree[clause][2], first_clauses, second_clauses, second_variables, proof_tree, labels)
+                self.compute_labels(proof_tree[clause][0], first_clauses, second_clauses, second_variables, proof_tree, labels)
+                left_parent_label = labels[proof_tree[clause][0]]
+                self.compute_labels(proof_tree[clause][2], first_clauses, second_clauses, second_variables, proof_tree, labels)
+                right_parent_label = labels[proof_tree[clause][2]]
                 if abs(resolved_on_variable) in second_variables:
                     label = Node.And(left_parent_label, right_parent_label)
                 else:
                     label = Node.Or(left_parent_label, right_parent_label)
             labels[clause] = label
-        return labels[clause].get_copy()
 
     @staticmethod
     def get_proof_tree_size(clause, proof_tree):
