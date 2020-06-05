@@ -129,63 +129,67 @@ class Generator:
             self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
     # compute interpolant out of two clause sets and a proof tree
-    def compute_interpolant(self, first_clauses, second_clauses, proof_tree, empty_clause_index):
+    def compute_interpolant(self, first_clauses, second_clauses, proof_tree):
         first_clauses = set([tuple(sorted(x)) for x in first_clauses])
         second_clauses = set([tuple(sorted(x)) for x in second_clauses])
         second_variables = set()
         for clause in second_clauses:
             for literal in clause:
                 second_variables.add(abs(literal))
-        return self.compute_label(proof_tree[empty_clause_index], first_clauses, second_clauses, second_variables, proof_tree)
+        return self.compute_label((), first_clauses, second_clauses, second_variables, proof_tree, {})
 
     # compute a label of some clause in the proof_tree
-    def compute_label(self, clause, first_clauses, second_clauses, second_variables, proof_tree):
-        if clause[0] in first_clauses:
-            formula = Node.false(self.model)
-            for literal in [x for x in clause[0] if abs(x) in second_variables]:
-                formula = Node.Or(formula, Node.Literal(literal))
-            return formula
-        elif clause[0] in second_clauses:
-            return Node.true(self.model)
-        else:
-            resolved_on_variable = clause[1][1]
-            left_parent_label = self.compute_label(proof_tree[clause[1][0]], first_clauses, second_clauses, second_variables, proof_tree)
-            right_parent_label = self.compute_label(proof_tree[clause[1][2]], first_clauses, second_clauses, second_variables, proof_tree)
-            if abs(resolved_on_variable) in second_variables:
-                return Node.And(left_parent_label, right_parent_label)
+    def compute_label(self, clause, first_clauses, second_clauses, second_variables, proof_tree, labels):
+        if clause not in labels:
+            if clause in first_clauses:
+                label = Node.false(self.model)
+                for literal in [x for x in clause if abs(x) in second_variables]:
+                    label = Node.Or(label, Node.Literal(literal))
+            elif clause in second_clauses:
+                label = Node.true(self.model)
             else:
-                return Node.Or(left_parent_label, right_parent_label)
+                resolved_on_variable = proof_tree[clause][1]
+                left_parent_label = self.compute_label(proof_tree[clause][0], first_clauses, second_clauses, second_variables, proof_tree, labels)
+                right_parent_label = self.compute_label(proof_tree[clause][2], first_clauses, second_clauses, second_variables, proof_tree, labels)
+                if abs(resolved_on_variable) in second_variables:
+                    label = Node.And(left_parent_label, right_parent_label)
+                else:
+                    label = Node.Or(left_parent_label, right_parent_label)
+            labels[clause] = label
+        return labels[clause].get_copy()
 
     @staticmethod
     def get_proof_tree_size(clause, proof_tree):
-        if len(clause[1]) > 0:
-            return 1 + Generator.get_proof_tree_size(proof_tree[clause[1][0]], proof_tree) + Generator.get_proof_tree_size(proof_tree[clause[1][2]], proof_tree)
-        else:
+        if len(proof_tree[clause]) == 0:
             return 1
+        else:
+            return 1 + Generator.get_proof_tree_size(proof_tree[clause][0], proof_tree) + Generator.get_proof_tree_size(proof_tree[clause][2], proof_tree)
 
     # generate a proof tree out of SAT solver output
     @staticmethod
     def generate_proof_tree(output):
         output = output[output.find('...') + len('...'):].replace('Final clause: <empty>', '').strip() + ' 0'
-        empty_clause_index = output.count('\n')
-        running_clause_index = empty_clause_index
+        running_clause_index = output.count('\n')
+        clauses = {}
         proof_tree = {}
         for line in output.split('\n'):
             number = int(line[:line.find(':')].strip())
             if 'ROOT' in line:
                 clause = tuple(sorted(map(int, line[line.find('ROOT') + len('ROOT'):].strip().split(' '))))
-                proof_tree[number] = (clause, ())
-            if 'CHAIN' in line:
+                path = ()
+            else:
                 clause = tuple(sorted(map(int, line[line.find('=>') + len('=>'):].strip().split(' '))))
                 path = tuple(map(int, line[line.find('CHAIN') + len('CHAIN'):line.find('=>')].replace('[', '').replace(']', '').strip().split(' ')))
                 while len(path) > 3:
                     running_clause_index += 1
-                    derived_clause = tuple(sorted([x for x in proof_tree[path[0]][0] + proof_tree[path[2]][0] if abs(x) != path[1]]))
-                    derived_path = path[:3]
-                    proof_tree[running_clause_index] = (derived_clause, derived_path)
+                    derived_clause = tuple(sorted([x for x in clauses[path[0]] + clauses[path[2]] if abs(x) != path[1]]))
+                    clauses[running_clause_index] = derived_clause
+                    proof_tree[derived_clause] = (clauses[path[0]], path[1], clauses[path[2]])
                     path = (running_clause_index,) + path[3:]
-                proof_tree[number] = (clause, path)
-        return proof_tree, empty_clause_index
+            clause = clause if clause != (0,) else ()
+            clauses[number] = clause
+            proof_tree[clause] = () if path == () else (clauses[path[0]], path[1], clauses[path[2]])
+        return proof_tree
 
 
 # the Node object for building the syntax tree of the formula to be checked with the SAT solver
