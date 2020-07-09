@@ -146,7 +146,9 @@ class Generator:
             if clause in first_clauses:
                 label = Node.false(self.model)
                 for literal in [x for x in clause if abs(x) in second_variables]:
-                    label = Node.Or(label, Node.Literal(literal))
+                    literal_node = Node.Literal(literal)
+                    self.increment_steps(literal_node, -1)
+                    label = Node.Or(label, literal_node)
             elif clause in second_clauses:
                 label = Node.true(self.model)
             else:
