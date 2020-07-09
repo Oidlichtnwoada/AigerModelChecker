@@ -158,9 +158,23 @@ class Generator:
                 self.compute_labels(proof_tree[clause][2], first_clauses, second_clauses, second_variables, proof_tree, labels)
                 right_parent_label = labels[proof_tree[clause][2]]
                 if abs(resolved_on_variable) in second_variables:
-                    label = Node.And(left_parent_label, right_parent_label)
+                    if left_parent_label == Node.false(self.model) or right_parent_label == Node.false(self.model):
+                        label = Node.false(self.model)
+                    elif left_parent_label == Node.true(self.model):
+                        label = right_parent_label
+                    elif right_parent_label == Node.true(self.model):
+                        label = left_parent_label
+                    else:
+                        label = Node.And(left_parent_label, right_parent_label)
                 else:
-                    label = Node.Or(left_parent_label, right_parent_label)
+                    if left_parent_label == Node.true(self.model) or left_parent_label == Node.true(self.model):
+                        label = Node.true(self.model)
+                    elif left_parent_label == Node.false(self.model):
+                        label = right_parent_label
+                    elif right_parent_label == Node.false(self.model):
+                        label = left_parent_label
+                    else:
+                        label = Node.Or(left_parent_label, right_parent_label)
             labels[clause] = label
 
     @staticmethod
