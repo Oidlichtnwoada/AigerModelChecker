@@ -167,7 +167,7 @@ class Generator:
                     else:
                         label = Node.And(left_parent_label, right_parent_label)
                 else:
-                    if left_parent_label == Node.true(self.model) or left_parent_label == Node.true(self.model):
+                    if left_parent_label == Node.true(self.model) or right_parent_label == Node.true(self.model):
                         label = Node.true(self.model)
                     elif left_parent_label == Node.false(self.model):
                         label = right_parent_label
