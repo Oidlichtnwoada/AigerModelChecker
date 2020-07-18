@@ -132,16 +132,20 @@ class Generator:
     def compute_interpolant(self, first_clauses, second_clauses, proof_tree):
         first_clauses = set([tuple(sorted(x)) for x in first_clauses])
         second_clauses = set([tuple(sorted(x)) for x in second_clauses])
+        first_variables = set()
+        for clause in first_clauses:
+            for literal in clause:
+                first_variables.add(abs(literal))
         second_variables = set()
         for clause in second_clauses:
             for literal in clause:
                 second_variables.add(abs(literal))
         labels = {}
-        self.compute_labels((), first_clauses, second_clauses, second_variables, proof_tree, labels)
+        self.compute_labels((), first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
         return labels[()]
 
     # compute a label of some clause in the proof_tree
-    def compute_labels(self, clause, first_clauses, second_clauses, second_variables, proof_tree, labels):
+    def compute_labels(self, clause, first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels):
         if clause not in labels:
             if clause in first_clauses:
                 label = Node.false(self.model)
@@ -153,28 +157,28 @@ class Generator:
                 label = Node.true(self.model)
             else:
                 resolved_on_variable = proof_tree[clause][1]
-                self.compute_labels(proof_tree[clause][0], first_clauses, second_clauses, second_variables, proof_tree, labels)
+                self.compute_labels(proof_tree[clause][0], first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
                 left_parent_label = labels[proof_tree[clause][0]]
-                self.compute_labels(proof_tree[clause][2], first_clauses, second_clauses, second_variables, proof_tree, labels)
+                self.compute_labels(proof_tree[clause][2], first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
                 right_parent_label = labels[proof_tree[clause][2]]
-                if abs(resolved_on_variable) in second_variables:
-                    if left_parent_label == Node.false(self.model) or right_parent_label == Node.false(self.model):
-                        label = Node.false(self.model)
-                    elif left_parent_label == Node.true(self.model):
-                        label = right_parent_label
-                    elif right_parent_label == Node.true(self.model):
-                        label = left_parent_label.get_copy()
-                    else:
-                        label = Node.And(left_parent_label.get_copy(), right_parent_label.get_copy())
-                else:
+                if resolved_on_variable in first_variables and resolved_on_variable not in second_variables:
                     if left_parent_label == Node.true(self.model) or right_parent_label == Node.true(self.model):
                         label = Node.true(self.model)
                     elif left_parent_label == Node.false(self.model):
-                        label = right_parent_label
+                        label = right_parent_label.get_copy()
                     elif right_parent_label == Node.false(self.model):
                         label = left_parent_label.get_copy()
                     else:
                         label = Node.Or(left_parent_label.get_copy(), right_parent_label.get_copy())
+                else:
+                    if left_parent_label == Node.false(self.model) or right_parent_label == Node.false(self.model):
+                        label = Node.false(self.model)
+                    elif left_parent_label == Node.true(self.model):
+                        label = right_parent_label.get_copy()
+                    elif right_parent_label == Node.true(self.model):
+                        label = left_parent_label.get_copy()
+                    else:
+                        label = Node.And(left_parent_label.get_copy(), right_parent_label.get_copy())
             labels[clause] = label
 
     @staticmethod
