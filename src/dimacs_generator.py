@@ -163,18 +163,18 @@ class Generator:
                     elif left_parent_label == Node.true(self.model):
                         label = right_parent_label
                     elif right_parent_label == Node.true(self.model):
-                        label = left_parent_label
+                        label = left_parent_label.get_copy()
                     else:
-                        label = Node.And(left_parent_label, right_parent_label)
+                        label = Node.And(left_parent_label.get_copy(), right_parent_label.get_copy())
                 else:
                     if left_parent_label == Node.true(self.model) or right_parent_label == Node.true(self.model):
                         label = Node.true(self.model)
                     elif left_parent_label == Node.false(self.model):
                         label = right_parent_label
                     elif right_parent_label == Node.false(self.model):
-                        label = left_parent_label
+                        label = left_parent_label.get_copy()
                     else:
-                        label = Node.Or(left_parent_label, right_parent_label)
+                        label = Node.Or(left_parent_label.get_copy(), right_parent_label.get_copy())
             labels[clause] = label
 
     @staticmethod
@@ -201,7 +201,7 @@ class Generator:
                 path = tuple(map(int, line[line.find('CHAIN') + len('CHAIN'):line.find('=>')].replace('[', '').replace(']', '').strip().split(' ')))
                 while len(path) > 3:
                     running_clause_index += 1
-                    derived_clause = tuple(sorted([x for x in clauses[path[0]] + clauses[path[2]] if abs(x) != path[1]]))
+                    derived_clause = tuple(sorted(list(set([x for x in clauses[path[0]] + clauses[path[2]] if abs(x) != path[1]]))))
                     clauses[running_clause_index] = derived_clause
                     proof_tree[derived_clause] = (clauses[path[0]], path[1], clauses[path[2]])
                     path = (running_clause_index,) + path[3:]

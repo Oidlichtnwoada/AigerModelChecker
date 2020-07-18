@@ -46,7 +46,7 @@ class BoundedModelChecker:
                 first_transition_formula = generator.transition(0, 0)
                 second_transition_formula = generator.transition(1, current_bound - 1)
                 safety_formula = generator.safety()
-                current_interpolant = Node.false(model)
+                current_interpolant = Node.true(model)
                 while True:
                     first_formula = Node.And(first_equivalences_formula.get_copy(), Node.And(initial_formula.get_copy(), first_transition_formula.get_copy()))
                     first_clauses = generator.generate_clauses(first_formula)
