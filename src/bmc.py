@@ -46,11 +46,12 @@ class BoundedModelChecker:
                 first_transition_formula = generator.transition(0, 0)
                 second_transition_formula = generator.transition(1, current_bound - 1)
                 safety_formula = generator.safety()
-                current_interpolant = Node.true(model)
+                current_interpolant = Node.false(model)
+                first_iteration = True
                 while True:
-                    first_formula = Node.And(first_equivalences_formula.get_copy(), Node.And(initial_formula.get_copy(), first_transition_formula.get_copy()))
+                    first_formula = Node.And(first_equivalences_formula, Node.And(initial_formula, first_transition_formula))
                     first_clauses = generator.generate_clauses(first_formula)
-                    second_formula = Node.And(second_equivalences_formula.get_copy(), Node.And(safety_formula.get_copy(), second_transition_formula.get_copy()))
+                    second_formula = Node.And(second_equivalences_formula, Node.And(safety_formula, second_transition_formula))
                     second_clauses = generator.generate_clauses(second_formula)
                     generator.build_dimacs(first_clauses.union(second_clauses))
                     output = run(['../minisat_proof/minisat_proof', '-c', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
@@ -60,11 +61,12 @@ class BoundedModelChecker:
                         interpolants_not_equal_formula = Node.get_equivalence_formula(current_interpolant, next_interpolant).get_negated_copy()
                         generator.build_dimacs(generator.generate_clauses(interpolants_not_equal_formula))
                         output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
-                        if 'UNSATISFIABLE' in output:
+                        if 'UNSATISFIABLE' in output and not first_iteration:
                             if out:
                                 print('OK')
                             return True
                         else:
+                            first_iteration = False
                             initial_formula = Node.Or(initial_formula, next_interpolant)
                             current_interpolant = next_interpolant
                     else:

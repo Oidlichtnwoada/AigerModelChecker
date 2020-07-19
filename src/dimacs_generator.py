@@ -191,7 +191,18 @@ class Generator:
     # generate a proof tree out of SAT solver output
     @staticmethod
     def generate_proof_tree(output):
-        output = output[output.find('...') + len('...'):].replace('Final clause: <empty>', '').strip() + ' 0'
+        output = output[output.find('...') + len('...'):].strip()
+        if 'Final clause: <empty>' in output:
+            output = output[:output.find('Final clause: <empty>')].strip() + ' 0'
+        else:
+            output = output[:output.find('Trivial problem')].strip()
+            line = output.count('\n')
+            output = output.replace('Final clause', str(line))
+            literal = abs(int(output.split()[-1]))
+            first_clause = output[:output.find(f'ROOT {literal}\n')].count('\n')
+            second_clause = output[:output.find(f'ROOT -{literal}\n')].count('\n')
+            output = output[:output.find(f'{line}:')]
+            output += f'{line}: CHAIN {first_clause} [{literal}] {second_clause} => 0'
         running_clause_index = output.count('\n')
         clauses = {}
         proof_tree = {}
@@ -289,7 +300,7 @@ class Node:
 
     @staticmethod
     def get_constants(model):
-        return [Node.true(model), Node.false(model)]
+        return [Node.true(model), Node.false(model), Node.true(model).get_negated_copy(), Node.false(model).get_negated_copy()]
 
     @staticmethod
     def get_equivalence_formula(first_argument, second_argument):
