@@ -151,12 +151,17 @@ class Generator:
                 label = Node.false(self.model)
                 for literal in [x for x in clause if abs(x) in second_variables]:
                     literal_node = Node.Literal(literal)
-                    self.increment_steps(literal_node, -1)
+                    # check is there because there is a variable from step 0 that is part of the interpolant
+                    if self.model.maximum_variable_index < literal <= 2 * self.model.maximum_variable_index:
+                        self.increment_steps(literal_node, -1)
                     label = Node.Or(label, literal_node)
             elif clause in second_clauses:
                 label = Node.true(self.model)
             else:
-                resolved_on_variable = proof_tree[clause][1]
+                try:
+                    resolved_on_variable = proof_tree[clause][1]
+                except IndexError:
+                    t = 0
                 self.compute_labels(proof_tree[clause][0], first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
                 left_parent_label = labels[proof_tree[clause][0]]
                 self.compute_labels(proof_tree[clause][2], first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
@@ -277,6 +282,10 @@ class Node:
 
     def count_nodes_in_formula(self):
         return 1 if self.is_literal() else 1 + self.first_argument.count_nodes_in_formula() + self.second_argument.count_nodes_in_formula()
+
+    def count_label_in_formula(self, label):
+        current = int(self.label == label)
+        return current if self.is_literal() else current + self.first_argument.count_label_in_formula(label) + self.second_argument.count_label_in_formula(label)
 
     @staticmethod
     def And(first_argument, second_argument):
