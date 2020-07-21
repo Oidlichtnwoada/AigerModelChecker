@@ -312,9 +312,9 @@ class Node:
 
     @staticmethod
     def get_equivalence_formula(first_argument, second_argument):
-        first_argument = first_argument.get_copy()
+        first_argument = first_argument
         negated_first_argument = first_argument.get_negated_copy()
-        second_argument = second_argument.get_copy()
+        second_argument = second_argument
         negated_second_argument = second_argument.get_negated_copy()
         return Node.Or(Node.And(first_argument, second_argument),
                        Node.And(negated_first_argument, negated_second_argument))
