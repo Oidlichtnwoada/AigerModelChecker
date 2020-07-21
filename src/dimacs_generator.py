@@ -169,20 +169,20 @@ class Generator:
                     if left_parent_label == Node.true(self.model) or right_parent_label == Node.true(self.model):
                         label = Node.true(self.model)
                     elif left_parent_label == Node.false(self.model):
-                        label = right_parent_label.get_copy()
+                        label = right_parent_label
                     elif right_parent_label == Node.false(self.model):
-                        label = left_parent_label.get_copy()
+                        label = left_parent_label
                     else:
-                        label = Node.Or(left_parent_label.get_copy(), right_parent_label.get_copy())
+                        label = Node.Or(left_parent_label, right_parent_label)
                 else:
                     if left_parent_label == Node.false(self.model) or right_parent_label == Node.false(self.model):
                         label = Node.false(self.model)
                     elif left_parent_label == Node.true(self.model):
-                        label = right_parent_label.get_copy()
+                        label = right_parent_label
                     elif right_parent_label == Node.true(self.model):
-                        label = left_parent_label.get_copy()
+                        label = left_parent_label
                     else:
-                        label = Node.And(left_parent_label.get_copy(), right_parent_label.get_copy())
+                        label = Node.And(left_parent_label, right_parent_label)
             labels[clause] = label
 
     @staticmethod
