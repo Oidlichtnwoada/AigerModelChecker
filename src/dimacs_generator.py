@@ -155,9 +155,7 @@ class Generator:
                 label = Node.false(self.model)
                 for literal in [x for x in clause if abs(x) in second_variables]:
                     literal_node = Node.Literal(literal)
-                    # check is there because there is a variable from step 0 that is part of the interpolant
-                    if self.model.maximum_variable_index < literal <= 2 * self.model.maximum_variable_index:
-                        self.increment_steps(literal_node, -1)
+                    self.increment_steps(literal_node, -1)
                     label = Node.Or(label, literal_node)
             elif clause in second_clauses:
                 label = Node.true(self.model)
