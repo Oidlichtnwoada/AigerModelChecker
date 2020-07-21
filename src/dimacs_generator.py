@@ -126,9 +126,9 @@ class Generator:
             first_argument = formula.first_argument.label
             second_argument = formula.second_argument.label
             factor = -1 if formula.is_and() else 1
-            clauses.add((label * -1 * factor, first_argument * factor, second_argument * factor))
-            clauses.add((label * factor, first_argument * -1 * factor))
-            clauses.add((label * factor, second_argument * -1 * factor))
+            clauses.add(tuple({label * -1 * factor, first_argument * factor, second_argument * factor}))
+            clauses.add(tuple({label * factor, first_argument * -1 * factor}))
+            clauses.add(tuple({label * factor, second_argument * -1 * factor}))
             self.add_equivalences_to_clauses(formula.first_argument, clauses)
             self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
