@@ -47,7 +47,6 @@ class BoundedModelChecker:
                 second_transition_formula = generator.transition(1, current_bound - 1)
                 safety_formula = generator.safety(current_bound, current_bound)
                 current_interpolant = Node.false(model)
-                first_iteration = True
                 while True:
                     first_formula = Node.And(first_equivalences_formula, Node.And(initial_formula, first_transition_formula))
                     first_clauses = generator.generate_clauses(first_formula)
@@ -61,12 +60,11 @@ class BoundedModelChecker:
                         interpolants_not_equal_formula = Node.get_equivalence_formula(current_interpolant, next_interpolant).get_negated_copy()
                         generator.build_dimacs(generator.generate_clauses(interpolants_not_equal_formula))
                         output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
-                        if 'UNSATISFIABLE' in output and not first_iteration:
+                        if 'UNSATISFIABLE' in output:
                             if out:
                                 print('OK')
                             return True
                         else:
-                            first_iteration = False
                             initial_formula = Node.Or(initial_formula, next_interpolant)
                             current_interpolant = next_interpolant
                     else:
