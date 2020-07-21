@@ -34,7 +34,7 @@ class BoundedModelChecker:
             return False
 
     def start_interpolation(self, out=False):
-        current_bound = 10
+        current_bound = 1
         while True:
             if self.start_bmc(current_bound):
                 parser = Parser(self.aiger, current_bound)
@@ -45,7 +45,7 @@ class BoundedModelChecker:
                 second_equivalences_formula = generator.equivalences(2, current_bound)
                 first_transition_formula = generator.transition(0, 0)
                 second_transition_formula = generator.transition(1, current_bound - 1)
-                safety_formula = generator.safety()
+                safety_formula = generator.safety(current_bound, current_bound)
                 current_interpolant = Node.false(model)
                 first_iteration = True
                 while True:
@@ -75,7 +75,7 @@ class BoundedModelChecker:
                 if out:
                     print('FAIL')
                 return False
-            current_bound += 10
+            current_bound += 1
 
 
 setrecursionlimit(1000000000)

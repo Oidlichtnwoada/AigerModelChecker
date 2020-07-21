@@ -45,10 +45,14 @@ class Generator:
         return formula
 
     # build up the safety formula which is satisfiable if a bad state has been reached
-    def safety(self):
+    def safety(self, start=None, end=None):
+        if start is None:
+            start = 0
+        if end is None:
+            end = self.bound
         formula = Node.false(self.model)
         bad_state_detector = self.model.outputs[0]
-        for i in range(self.bound + 1):
+        for i in range(start, end + 1):
             current_step_bad_state_detector = bad_state_detector.get_copy()
             self.increment_steps(current_step_bad_state_detector, i)
             formula = Node.Or(formula, current_step_bad_state_detector)
@@ -158,10 +162,7 @@ class Generator:
             elif clause in second_clauses:
                 label = Node.true(self.model)
             else:
-                try:
-                    resolved_on_variable = proof_tree[clause][1]
-                except IndexError:
-                    t = 0
+                resolved_on_variable = proof_tree[clause][1]
                 self.compute_labels(proof_tree[clause][0], first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
                 left_parent_label = labels[proof_tree[clause][0]]
                 self.compute_labels(proof_tree[clause][2], first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
