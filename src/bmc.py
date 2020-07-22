@@ -63,7 +63,7 @@ class BoundedModelChecker:
                         # compute interpolant from unsatisfiability proof
                         proof_tree = generator.generate_proof_tree(output)
                         next_interpolant = generator.compute_interpolant(first_clauses, second_clauses, proof_tree)
-                        interpolants_not_equal_formula = Node.get_equivalence_formula(current_interpolant, next_interpolant).get_negated_copy()
+                        interpolants_not_equal_formula = Node.NotEqual(current_interpolant, next_interpolant)
                         generator.build_dimacs(generator.generate_clauses(interpolants_not_equal_formula))
                         output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
                         if 'UNSATISFIABLE' in output:

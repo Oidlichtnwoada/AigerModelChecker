@@ -2,9 +2,11 @@ from enum import Enum
 
 
 class NodeType(Enum):
-    AND = 0
-    OR = 1
-    LITERAL = 2
+    LITERAL = 0
+    AND = 1
+    OR = 2
+    EQUAL = 3
+    NOT_EQUAL = 4
 
 
 class Generator:
@@ -28,7 +30,7 @@ class Generator:
             end = self.bound
         equivalences = Node.true(self.model)
         for out, (inp_0, inp_1) in self.model.and_gates.items():
-            equivalence = Node.get_equivalence_formula(out.get_copy(), Node.And(inp_0.get_copy(), inp_1.get_copy()))
+            equivalence = Node.Equal(out.get_copy(), Node.And(inp_0.get_copy(), inp_1.get_copy()))
             equivalences = Node.And(equivalences, equivalence)
         all_equivalences = Node.true(self.model)
         for i in range(start, end + 1):
@@ -41,7 +43,7 @@ class Generator:
     def initial(self):
         formula = Node.true(self.model)
         for out in self.model.latches:
-            formula = Node.And(formula, out.get_negated_copy())
+            formula = Node.And(formula, out.get_negated_literal_copy())
         return formula
 
     # build up the safety formula which is satisfiable if a bad state has been reached
@@ -79,7 +81,7 @@ class Generator:
             next_step_out = out.get_copy()
             self.increment_steps(next_step_out, 1)
             prev_step_in = self.model.latches[out].get_copy()
-            transition = Node.get_equivalence_formula(next_step_out, prev_step_in)
+            transition = Node.Equal(next_step_out, prev_step_in)
             formula = Node.And(formula, transition)
         return formula
 
@@ -125,10 +127,24 @@ class Generator:
             label = formula.label
             first_argument = formula.first_argument.label
             second_argument = formula.second_argument.label
-            factor = -1 if formula.is_and() else 1
-            clauses.add(tuple({label * -1 * factor, first_argument * factor, second_argument * factor}))
-            clauses.add(tuple({label * factor, first_argument * -1 * factor}))
-            clauses.add(tuple({label * factor, second_argument * -1 * factor}))
+            if formula.is_and():
+                clauses.add(tuple({label, first_argument * -1, second_argument * -1}))
+                clauses.add(tuple({label * -1, first_argument}))
+                clauses.add(tuple({label * -1, second_argument}))
+            elif formula.is_or():
+                clauses.add(tuple({label * -1, first_argument, second_argument}))
+                clauses.add(tuple({label, first_argument * -1}))
+                clauses.add(tuple({label, second_argument * -1}))
+            elif formula.is_equal():
+                clauses.add(tuple({label, first_argument, second_argument}))
+                clauses.add(tuple({label * -1, first_argument * -1, second_argument}))
+                clauses.add(tuple({label * -1, first_argument, second_argument * -1}))
+                clauses.add(tuple({label, first_argument * -1, second_argument * -1}))
+            elif formula.is_not_equal():
+                clauses.add(tuple({label * -1, first_argument * -1, second_argument * -1}))
+                clauses.add(tuple({label, first_argument, second_argument * -1}))
+                clauses.add(tuple({label, first_argument * -1, second_argument}))
+                clauses.add(tuple({label * -1, first_argument, second_argument}))
             self.add_equivalences_to_clauses(formula.first_argument, clauses)
             self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
@@ -238,21 +254,30 @@ class Node:
         self.second_argument = second_argument
         self.label = label
 
-    def get_negated_copy(self):
-        if self.is_and():
-            return Node.Or(self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy())
-        elif self.is_or():
-            return Node.And(self.first_argument.get_negated_copy(), self.second_argument.get_negated_copy())
-        elif self.is_literal():
-            return Node.Literal(self.label * -1)
-
     def get_copy(self):
-        if self.is_and():
+        if self.is_literal():
+            return Node.Literal(self.label)
+        elif self.is_and():
             return Node.And(self.first_argument.get_copy(), self.second_argument.get_copy())
         elif self.is_or():
             return Node.Or(self.first_argument.get_copy(), self.second_argument.get_copy())
-        elif self.is_literal():
-            return Node.Literal(self.label)
+        elif self.is_equal():
+            return Node.Equal(self.first_argument.get_copy(), self.second_argument.get_copy())
+        elif self.is_not_equal():
+            return Node.NotEqual(self.first_argument.get_copy(), self.second_argument.get_copy())
+
+    def get_negated_literal_copy(self):
+        if self.is_literal():
+            return Node.Literal(self.label * -1)
+
+    def is_literal(self):
+        return self.node_type == NodeType.LITERAL
+
+    def is_negative_literal(self):
+        return self.is_literal() and self.label < 0
+
+    def is_positive_literal(self):
+        return self.is_literal() and self.label > 0
 
     def is_and(self):
         return self.node_type == NodeType.AND
@@ -260,14 +285,11 @@ class Node:
     def is_or(self):
         return self.node_type == NodeType.OR
 
-    def is_literal(self):
-        return self.node_type == NodeType.LITERAL
+    def is_equal(self):
+        return self.node_type == NodeType.EQUAL
 
-    def is_negative_literal(self):
-        return self.node_type == NodeType.LITERAL and self.label < 0
-
-    def is_positive_literal(self):
-        return self.node_type == NodeType.LITERAL and self.label > 0
+    def is_not_equal(self):
+        return self.node_type == NodeType.NOT_EQUAL
 
     def __eq__(self, other):
         return self.label == other.label
@@ -283,14 +305,6 @@ class Node:
         return current if self.is_literal() else current + self.first_argument.count_label_in_formula(label) + self.second_argument.count_label_in_formula(label)
 
     @staticmethod
-    def And(first_argument, second_argument):
-        return Node(NodeType.AND, first_argument, second_argument, 0)
-
-    @staticmethod
-    def Or(first_argument, second_argument):
-        return Node(NodeType.OR, first_argument, second_argument, 0)
-
-    @staticmethod
     def Literal(label):
         return Node(NodeType.LITERAL, None, None, label)
 
@@ -304,13 +318,20 @@ class Node:
 
     @staticmethod
     def get_constants(model):
-        return [Node.true(model), Node.false(model), Node.true(model).get_negated_copy(), Node.false(model).get_negated_copy()]
+        return [Node.true(model), Node.false(model), Node.true(model).get_negated_literal_copy(), Node.false(model).get_negated_literal_copy()]
 
     @staticmethod
-    def get_equivalence_formula(first_argument, second_argument):
-        first_argument = first_argument
-        negated_first_argument = first_argument.get_negated_copy()
-        second_argument = second_argument
-        negated_second_argument = second_argument.get_negated_copy()
-        return Node.Or(Node.And(first_argument, second_argument),
-                       Node.And(negated_first_argument, negated_second_argument))
+    def And(first_argument, second_argument):
+        return Node(NodeType.AND, first_argument, second_argument, 0)
+
+    @staticmethod
+    def Or(first_argument, second_argument):
+        return Node(NodeType.OR, first_argument, second_argument, 0)
+
+    @staticmethod
+    def Equal(first_argument, second_argument):
+        return Node(NodeType.EQUAL, first_argument, second_argument, 0)
+
+    @staticmethod
+    def NotEqual(first_argument, second_argument):
+        return Node(NodeType.NOT_EQUAL, first_argument, second_argument, 0)
