@@ -65,7 +65,7 @@ class BoundedModelChecker:
                         next_interpolant = generator.compute_interpolant(first_clauses, second_clauses, proof_tree)
                         interpolants_not_equal_formula = Node.NotEqual(current_interpolant, next_interpolant)
                         print(f'current bound: {current_bound} proof tree size: {Generator.get_proof_tree_size((), proof_tree)} ' +
-                              f'interpolant size: {next_interpolant.count_nodes_in_formula()} interpolant check size: {interpolants_not_equal_formula.count_nodes_in_formula()}')
+                              f'interpolant size: {next_interpolant.count_nodes_in_formula()} interpolant equal check size: {interpolants_not_equal_formula.count_nodes_in_formula()}')
                         generator.build_dimacs(generator.generate_clauses(interpolants_not_equal_formula))
                         output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
                         if 'UNSATISFIABLE' in output:
