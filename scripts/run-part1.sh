@@ -1,2 +1,2 @@
 #!/bin/bash
-pypy3 ../src/bmc.py "$1" "$2" 0
+cd ../src && pypy3 bmc.py "$1" "$2" 0

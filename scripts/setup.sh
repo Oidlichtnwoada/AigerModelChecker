@@ -1,4 +1,5 @@
 #!/bin/bash
+git submodule update --init --recursive
 sudo apt update && sudo apt install pypy3
 cd ../picosat && ./configure && make clean && ./configure && make
 cd ../aiger && ./configure && make clean && ./configure && make
