@@ -232,15 +232,11 @@ class Generator:
 
 # the Node object for building the syntax tree of the formula to be checked with the SAT solver
 class Node:
-    def __init__(self, node_type, first_argument, second_argument, label, parent):
+    def __init__(self, node_type, first_argument, second_argument, label):
         self.node_type = node_type
         self.first_argument = first_argument
         self.second_argument = second_argument
         self.label = label
-        self.parent = parent
-        if self.first_argument and self.second_argument:
-            self.first_argument.parent = self
-            self.second_argument.parent = self
 
     def get_negated_copy(self):
         if self.is_and():
@@ -288,15 +284,15 @@ class Node:
 
     @staticmethod
     def And(first_argument, second_argument):
-        return Node(NodeType.AND, first_argument, second_argument, 0, None)
+        return Node(NodeType.AND, first_argument, second_argument, 0)
 
     @staticmethod
     def Or(first_argument, second_argument):
-        return Node(NodeType.OR, first_argument, second_argument, 0, None)
+        return Node(NodeType.OR, first_argument, second_argument, 0)
 
     @staticmethod
     def Literal(label):
-        return Node(NodeType.LITERAL, None, None, label, None)
+        return Node(NodeType.LITERAL, None, None, label)
 
     @staticmethod
     def true(model):
