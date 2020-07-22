@@ -1,5 +1,5 @@
 from subprocess import run, PIPE
-from sys import argv
+from sys import argv, setrecursionlimit
 
 from aiger_parser import Parser, Node
 from dimacs_generator import Generator
@@ -64,6 +64,8 @@ class BoundedModelChecker:
                         proof_tree = generator.generate_proof_tree(output)
                         next_interpolant = generator.compute_interpolant(first_clauses, second_clauses, proof_tree)
                         interpolants_not_equal_formula = Node.NotEqual(current_interpolant, next_interpolant)
+                        print(f'current bound: {current_bound} proof tree size: {Generator.get_proof_tree_size((), proof_tree)} ' +
+                              f'interpolant size: {next_interpolant.count_nodes_in_formula()} interpolant check size: {interpolants_not_equal_formula.count_nodes_in_formula()}')
                         generator.build_dimacs(generator.generate_clauses(interpolants_not_equal_formula))
                         output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
                         if 'UNSATISFIABLE' in output:
@@ -86,4 +88,5 @@ class BoundedModelChecker:
             current_bound += 1
 
 
+setrecursionlimit(1000000000)
 BoundedModelChecker(argv[1], int(argv[2]), bool(int(argv[3]))).start()
