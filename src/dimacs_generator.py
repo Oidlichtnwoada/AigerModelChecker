@@ -160,13 +160,30 @@ class Generator:
         for clause in second_clauses:
             for literal in clause:
                 second_variables.add(abs(literal))
+        clauses = []
+        self.fill_clauses((), proof_tree, clauses)
         labels = {}
-        self.compute_labels((), first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
+        self.compute_labels(first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels, clauses)
         return labels[()]
 
     # compute a label of some clause in the proof_tree
-    def compute_labels(self, clause, first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels):
-        if clause not in labels:
+    @staticmethod
+    def fill_clauses(root, proof_tree, clauses):
+        first_stack = []
+        second_stack = []
+        first_stack.append(root)
+        while first_stack:
+            current = first_stack.pop()
+            second_stack.append(current)
+            if len(proof_tree[current]) > 0:
+                first_stack.append(proof_tree[current][0])
+                first_stack.append(proof_tree[current][2])
+        while second_stack:
+            clauses.append(second_stack.pop())
+
+    # compute a label of some clause in the proof_tree
+    def compute_labels(self, first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels, clauses):
+        for clause in clauses:
             if clause in first_clauses:
                 label = Node.false(self.model)
                 for literal in [x for x in clause if abs(x) in second_variables]:
@@ -177,9 +194,7 @@ class Generator:
                 label = Node.true(self.model)
             else:
                 resolved_on_variable = proof_tree[clause][1]
-                self.compute_labels(proof_tree[clause][0], first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
                 left_parent_label = labels[proof_tree[clause][0]]
-                self.compute_labels(proof_tree[clause][2], first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
                 right_parent_label = labels[proof_tree[clause][2]]
                 if resolved_on_variable in first_variables and resolved_on_variable not in second_variables:
                     if left_parent_label == Node.true(self.model) or right_parent_label == Node.true(self.model):
