@@ -55,9 +55,9 @@ class BoundedModelChecker:
                 # try computing the interpolant iteratively
                 while True:
                     # build current formula for computing the interpolant
-                    first_formula = Node.And(first_equivalences_formula, Node.And(initial_formula, first_transition_formula))
+                    first_formula = Node.And(first_equivalences_formula, initial_formula, first_transition_formula)
                     first_clauses = generator.generate_clauses(first_formula)
-                    second_formula = Node.And(second_equivalences_formula, Node.And(safety_formula, second_transition_formula))
+                    second_formula = Node.And(second_equivalences_formula, safety_formula, second_transition_formula)
                     second_clauses = generator.generate_clauses(second_formula)
                     generator.build_dimacs(first_clauses.union(second_clauses))
                     output = run(['../minisat_proof/minisat_proof', '-c', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')

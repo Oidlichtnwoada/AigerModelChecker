@@ -16,7 +16,7 @@ class Generator:
 
     def generate_bounded_model_checking_dimacs(self):
         # build syntax tree of formula to check
-        formula = Node.And(self.equivalences(), Node.And(self.initial(), Node.And(self.transition(), self.safety())))
+        formula = Node.And(self.equivalences(), self.initial(), self.transition(), self.safety())
         # generate a clause set
         clauses = self.generate_clauses(formula)
         # write the clause set in dimacs style to a file
@@ -183,11 +183,12 @@ class Generator:
     # compute a label of some clause in the proof_tree
     def compute_label(self, first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels, clause):
         if clause in first_clauses:
-            label = Node.false(self.model)
-            for literal in [x for x in clause if abs(x) in second_variables]:
-                literal_node = Node.Literal(literal)
-                self.increment_steps(literal_node, -1)
-                label = Node.Or(label, literal_node)
+            relevant_literals = [x for x in clause if abs(x) in second_variables]
+            if len(relevant_literals) == 0:
+                label = Node.false(self.model)
+            else:
+                label = Node.Or(*[Node.Literal(literal) for literal in relevant_literals])
+                self.increment_steps(label, -1)
         elif clause in second_clauses:
             label = Node.true(self.model)
         else:
@@ -351,17 +352,39 @@ class Node:
         return [Node.true(model), Node.false(model), Node.true(model).get_negated_literal_copy(), Node.false(model).get_negated_literal_copy()]
 
     @staticmethod
-    def And(first_argument, second_argument):
-        return Node(NodeType.AND, first_argument, second_argument, 0)
+    def And(*arguments):
+        if len(arguments) == 1:
+            return arguments[0]
+        else:
+            assert len(arguments) >= 2
+            ret = Node(NodeType.AND, arguments[0], arguments[1], 0)
+            for argument in arguments[2:]:
+                ret = Node.And(ret, argument)
+            return ret
 
     @staticmethod
-    def Or(first_argument, second_argument):
-        return Node(NodeType.OR, first_argument, second_argument, 0)
+    def Or(*arguments):
+        if len(arguments) == 1:
+            return arguments[0]
+        else:
+            assert len(arguments) >= 2
+            ret = Node(NodeType.OR, arguments[0], arguments[1], 0)
+            for argument in arguments[2:]:
+                ret = Node.Or(ret, argument)
+            return ret
 
     @staticmethod
-    def Equal(first_argument, second_argument):
-        return Node(NodeType.EQUAL, first_argument, second_argument, 0)
+    def Equal(*arguments):
+        assert len(arguments) >= 2
+        ret = Node(NodeType.EQUAL, arguments[0], arguments[1], 0)
+        for argument in arguments[2:]:
+            ret = Node.Equal(ret, argument)
+        return ret
 
     @staticmethod
-    def NotEqual(first_argument, second_argument):
-        return Node(NodeType.NOT_EQUAL, first_argument, second_argument, 0)
+    def NotEqual(*arguments):
+        assert len(arguments) >= 2
+        ret = Node(NodeType.NOT_EQUAL, arguments[0], arguments[1], 0)
+        for argument in arguments[2:]:
+            ret = Node.NotEqual(ret, argument)
+        return ret
