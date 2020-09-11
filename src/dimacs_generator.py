@@ -160,15 +160,12 @@ class Generator:
         for clause in second_clauses:
             for literal in clause:
                 second_variables.add(abs(literal))
-        clauses = []
-        self.fill_clauses((), proof_tree, clauses)
         labels = {}
-        self.compute_labels(first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels, clauses)
+        self.fill_labels((), first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
         return labels[()]
 
     # compute a label of some clause in the proof_tree
-    @staticmethod
-    def fill_clauses(root, proof_tree, clauses):
+    def fill_labels(self, root, first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels):
         first_stack = []
         second_stack = []
         first_stack.append(root)
@@ -179,42 +176,43 @@ class Generator:
                 first_stack.append(proof_tree[current][0])
                 first_stack.append(proof_tree[current][2])
         while second_stack:
-            clauses.append(second_stack.pop())
+            clause = second_stack.pop()
+            if clause not in labels:
+                self.compute_label(first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels, clause)
 
     # compute a label of some clause in the proof_tree
-    def compute_labels(self, first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels, clauses):
-        for clause in clauses:
-            if clause in first_clauses:
-                label = Node.false(self.model)
-                for literal in [x for x in clause if abs(x) in second_variables]:
-                    literal_node = Node.Literal(literal)
-                    self.increment_steps(literal_node, -1)
-                    label = Node.Or(label, literal_node)
-            elif clause in second_clauses:
-                label = Node.true(self.model)
-            else:
-                resolved_on_variable = proof_tree[clause][1]
-                left_parent_label = labels[proof_tree[clause][0]]
-                right_parent_label = labels[proof_tree[clause][2]]
-                if resolved_on_variable in first_variables and resolved_on_variable not in second_variables:
-                    if left_parent_label == Node.true(self.model) or right_parent_label == Node.true(self.model):
-                        label = Node.true(self.model)
-                    elif left_parent_label == Node.false(self.model):
-                        label = right_parent_label
-                    elif right_parent_label == Node.false(self.model):
-                        label = left_parent_label
-                    else:
-                        label = Node.Or(left_parent_label, right_parent_label)
+    def compute_label(self, first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels, clause):
+        if clause in first_clauses:
+            label = Node.false(self.model)
+            for literal in [x for x in clause if abs(x) in second_variables]:
+                literal_node = Node.Literal(literal)
+                self.increment_steps(literal_node, -1)
+                label = Node.Or(label, literal_node)
+        elif clause in second_clauses:
+            label = Node.true(self.model)
+        else:
+            resolved_on_variable = proof_tree[clause][1]
+            left_parent_label = labels[proof_tree[clause][0]]
+            right_parent_label = labels[proof_tree[clause][2]]
+            if resolved_on_variable in first_variables and resolved_on_variable not in second_variables:
+                if left_parent_label == Node.true(self.model) or right_parent_label == Node.true(self.model):
+                    label = Node.true(self.model)
+                elif left_parent_label == Node.false(self.model):
+                    label = right_parent_label
+                elif right_parent_label == Node.false(self.model):
+                    label = left_parent_label
                 else:
-                    if left_parent_label == Node.false(self.model) or right_parent_label == Node.false(self.model):
-                        label = Node.false(self.model)
-                    elif left_parent_label == Node.true(self.model):
-                        label = right_parent_label
-                    elif right_parent_label == Node.true(self.model):
-                        label = left_parent_label
-                    else:
-                        label = Node.And(left_parent_label, right_parent_label)
-            labels[clause] = label
+                    label = Node.Or(left_parent_label, right_parent_label)
+            else:
+                if left_parent_label == Node.false(self.model) or right_parent_label == Node.false(self.model):
+                    label = Node.false(self.model)
+                elif left_parent_label == Node.true(self.model):
+                    label = right_parent_label
+                elif right_parent_label == Node.true(self.model):
+                    label = left_parent_label
+                else:
+                    label = Node.And(left_parent_label, right_parent_label)
+        labels[clause] = label
 
     @staticmethod
     def get_proof_tree_size(clause, proof_tree):
@@ -252,11 +250,15 @@ class Generator:
                 while len(path) > 3:
                     running_clause_index += 1
                     derived_clause = tuple(sorted(list(set([x for x in clauses[path[0]] + clauses[path[2]] if abs(x) != path[1]]))))
+                    assert running_clause_index not in clauses
                     clauses[running_clause_index] = derived_clause
-                    proof_tree[derived_clause] = (clauses[path[0]], path[1], clauses[path[2]])
+                    if derived_clause not in proof_tree:
+                        proof_tree[derived_clause] = (clauses[path[0]], path[1], clauses[path[2]])
                     path = (running_clause_index,) + path[3:]
             clause = clause if clause != (0,) else ()
+            assert number not in clauses
             clauses[number] = clause
+            assert clause not in proof_tree
             proof_tree[clause] = () if path == () else (clauses[path[0]], path[1], clauses[path[2]])
         return proof_tree
 
