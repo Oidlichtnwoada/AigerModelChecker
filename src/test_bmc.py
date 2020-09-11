@@ -2,7 +2,7 @@ import unittest
 from subprocess import run, PIPE
 
 
-class BMCTestCase(unittest.TestCase):
+class BmcTestCase(unittest.TestCase):
     def test_bmc(self):
         script_output = run('./example.sh', cwd='../scripts', shell=True, stdout=PIPE).stdout.decode('utf-8')
         expected_output = 'OK\nFAIL\nOK\nFAIL\nOK\nFAIL\nOK\nOK\n'
