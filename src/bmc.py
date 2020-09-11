@@ -4,7 +4,7 @@ from sys import argv
 from aiger_parser import Parser, Node
 from dimacs_generator import Generator
 
-DEBUG = False
+DEBUG = True
 
 
 class BoundedModelChecker:

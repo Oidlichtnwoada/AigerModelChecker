@@ -259,8 +259,8 @@ class Generator:
             clause = clause if clause != (0,) else ()
             assert number not in clauses
             clauses[number] = clause
-            assert clause not in proof_tree
-            proof_tree[clause] = () if path == () else (clauses[path[0]], path[1], clauses[path[2]])
+            if clause not in proof_tree:
+                proof_tree[clause] = () if path == () else (clauses[path[0]], path[1], clauses[path[2]])
         return proof_tree
 
 
