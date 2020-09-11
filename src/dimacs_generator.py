@@ -321,6 +321,19 @@ class Node:
         current = int(self.label == label)
         return current if self.is_literal() else current + self.first_argument.count_label_in_formula(label) + self.second_argument.count_label_in_formula(label)
 
+    def get_formula(self):
+        if self.is_literal():
+            return str(self.label)
+        elif self.is_and():
+            op = 'and'
+        elif self.is_or():
+            op = 'or'
+        elif self.is_equal():
+            op = 'eq'
+        elif self.is_not_equal():
+            op = 'neq'
+        return f'({self.first_argument.get_formula()}) {op} ({self.second_argument.get_formula()})'
+
     @staticmethod
     def Literal(label):
         return Node(NodeType.LITERAL, None, None, label)
