@@ -1,6 +1,7 @@
 from enum import Enum
 
 
+# an enum to manage the different types of nodes used in formulas
 class NodeType(Enum):
     LITERAL = 0
     AND = 1
@@ -9,20 +10,22 @@ class NodeType(Enum):
     NOT_EQUAL = 4
 
 
+# definition of the generator object which generates formulas
 class Generator:
     def __init__(self, model, bound):
         self.model = model
         self.bound = bound
 
+    # this writes the bmc formula to the dimacs file
     def generate_bounded_model_checking_dimacs(self):
-        # build syntax tree of formula to check
+        # build expression tree of bmc formula
         formula = Node.and_formula(self.equivalences(), self.initial(), self.transition(), self.safety())
-        # generate a clause set
+        # generate a clause set from the formula
         clauses = self.generate_clauses(formula)
-        # write the clause set in dimacs style to a file
+        # write the clause set in dimacs style to the file
         self.build_dimacs(clauses)
 
-    # add the equivalences enforced by the and gates to the formula
+    # return the formula that enforces the equivalences from the and gates
     def equivalences(self, start=None, end=None):
         if start is None:
             start = 0
@@ -39,14 +42,14 @@ class Generator:
             all_equivalences = Node.and_formula(all_equivalences, current_step_equivalences)
         return all_equivalences
 
-    # build up the initial state formula to guarantee that all latches are initialized to zero
+    # build up the initial state formula that guarantees that all latches are initialized to zero
     def initial(self):
         formula = Node.true(self.model)
         for out in self.model.latches:
             formula = Node.and_formula(formula, out.get_negated_literal_copy())
         return formula
 
-    # build up the safety formula which is satisfiable if a bad state has been reached
+    # build up the safety formula which is satisfiable if a bad state has been reached at any step
     def safety(self, start=None, end=None):
         if start is None:
             start = 0
@@ -60,7 +63,7 @@ class Generator:
             formula = Node.or_formula(formula, current_step_bad_state_detector)
         return formula
 
-    # build up the transition formula
+    # build up the transition formula that connects previous step inputs to next step outputs for every latch
     def transition(self, start=None, end=None):
         if start is None:
             start = 0
@@ -99,12 +102,14 @@ class Generator:
             self.increment_steps(formula.first_argument, steps)
             self.increment_steps(formula.second_argument, steps)
 
-    # construct a cnf formula using Tseitin transformation
+    # construct a cnf formula using tseitin transformation
     def generate_clauses(self, formula):
+        # label all connectives
         self.add_labels(formula)
-        # force SAT solver to pick the two constants to True and False
+        # force the sat solver to pick the two constants to true and false
         clauses = {(formula.label,), (self.model.true_index,), (-self.model.false_index,)}
         processed_formulas = set()
+        # transform the expression tree to clauses and add them to the set
         self.add_equivalences_to_clauses(formula, clauses, processed_formulas)
         return clauses
 
@@ -114,7 +119,7 @@ class Generator:
             file.write(f'p cnf {self.model.label_running_index} {len(clauses)}\n')
             [file.write(f'{" ".join(map(str, clause))} 0\n') for clause in clauses]
 
-    # label all internal nodes in the syntax tree of the formula
+    # label all unlabelled nodes in the syntax tree of the formula
     def add_labels(self, formula):
         if not formula.is_literal() and formula.label == 0:
             self.model.label_running_index += 1
@@ -122,7 +127,7 @@ class Generator:
             self.add_labels(formula.first_argument)
             self.add_labels(formula.second_argument)
 
-    # generate clauses for all the equivalences used in the Tseitin transformation
+    # generate clauses for all equivalences enforced by the expression tree - each formula is only processed once
     def add_equivalences_to_clauses(self, formula, clauses, processed_formulas):
         if not formula.is_literal() and formula not in processed_formulas:
             label = formula.label
@@ -152,7 +157,7 @@ class Generator:
             self.add_equivalences_to_clauses(formula.first_argument, clauses, processed_formulas)
             self.add_equivalences_to_clauses(formula.second_argument, clauses, processed_formulas)
 
-    # compute interpolant out of two clause sets and a proof tree
+    # compute the interpolant out of two clause sets and a proof tree
     def compute_interpolant(self, first_clauses, second_clauses, proof_tree):
         first_variables = set()
         for clause in first_clauses:
@@ -204,10 +209,12 @@ class Generator:
                         label = Node.and_formula(left_parent_label, right_parent_label)
             labels[clause] = label
 
+    # return a sorted clause without duplicates
     @staticmethod
     def get_clause(*labels):
         return tuple(sorted(set(labels)))
 
+    # return the resolution steps from the root clauses to the passed clause
     @staticmethod
     def get_proof_tree_steps(clause, proof_tree):
         if len(proof_tree[clause]) == 0:
@@ -216,13 +223,15 @@ class Generator:
             return 1 + Generator.get_proof_tree_steps(proof_tree[clause][0], proof_tree) + \
                    Generator.get_proof_tree_steps(proof_tree[clause][2], proof_tree)
 
-    # generate a proof tree out of SAT solver output
+    # generate a proof tree out of the sat solver output
     @staticmethod
     def generate_proof_tree(output):
         output = output[output.find('...') + len('...'):].strip()
         if 'Final clause: <empty>' in output:
+            # ordinary case
             output = output[:output.find('Final clause: <empty>')].strip() + ' 0'
         else:
+            # trivial case
             output = output[:output.find('Trivial problem')].strip()
             line = output.count('\n')
             output = output.replace('Final clause', str(line))
@@ -237,12 +246,15 @@ class Generator:
         for line in output.split('\n'):
             number = int(line[:line.find(':')].strip())
             if 'ROOT' in line:
+                # add a root clause to the proof tree
                 clause = Generator.get_clause(*tuple(map(int, line[line.find('ROOT') + len('ROOT'):].strip().split(' '))))
                 path = ()
             else:
+                # add a derived clause to the proof tree
                 clause = Generator.get_clause(*tuple(map(int, line[line.find('=>') + len('=>'):].strip().split(' '))))
                 path = tuple(map(int, line[line.find('CHAIN') + len('CHAIN'):line.find('=>')].replace('[', '').replace(']', '').strip().split(' ')))
                 while len(path) > 3:
+                    # unroll chains to get single resolution steps
                     running_clause_index += 1
                     derived_clause = Generator.get_clause(*[x for x in clauses[path[0]] + clauses[path[2]] if abs(x) != path[1]])
                     assert running_clause_index not in clauses
@@ -258,7 +270,7 @@ class Generator:
         return proof_tree
 
 
-# the Node object for building the syntax tree of the formula to be checked with the SAT solver
+# definition of the node object which builds formulas
 class Node:
     def __init__(self, node_type, first_argument, second_argument, label):
         self.node_type = node_type
@@ -266,6 +278,7 @@ class Node:
         self.second_argument = second_argument
         self.label = label
 
+    # generates a copy of the node object
     def get_copy(self):
         if self.is_literal():
             return Node.literal(self.label)
@@ -280,44 +293,52 @@ class Node:
         else:
             raise NotImplementedError()
 
+    # generates a negated copy of the literal object
     def get_negated_literal_copy(self):
         if self.is_literal():
             return Node.literal(self.label * -1)
 
+    # checks if the object is a literal
     def is_literal(self):
         return self.node_type == NodeType.LITERAL
 
+    # checks if the object is a negative literal
     def is_negative_literal(self):
         return self.is_literal() and self.label < 0
 
+    # checks if the object is a positive literal
     def is_positive_literal(self):
         return self.is_literal() and self.label > 0
 
+    # checks if the object is an and connective
     def is_and(self):
         return self.node_type == NodeType.AND
 
+    # checks if the object is an or connective
     def is_or(self):
         return self.node_type == NodeType.OR
 
+    # checks if the object is an equal connective
     def is_equal(self):
         return self.node_type == NodeType.EQUAL
 
+    # checks if the object is a not equal connective
     def is_not_equal(self):
         return self.node_type == NodeType.NOT_EQUAL
 
+    # equality check is done through the labels
     def __eq__(self, other):
         return self.label == other.label
 
+    # the uniqueness in hash data structures is determined by the label
     def __hash__(self):
         return self.label
 
+    # returns the node count of the formula object
     def count_nodes_in_formula(self):
         return 1 if self.is_literal() else 1 + self.first_argument.count_nodes_in_formula() + self.second_argument.count_nodes_in_formula()
 
-    def count_label_in_formula(self, label):
-        current = int(self.label == label)
-        return current if self.is_literal() else current + self.first_argument.count_label_in_formula(label) + self.second_argument.count_label_in_formula(label)
-
+    # returns the formula object as string
     def get_formula(self):
         if self.is_literal():
             return str(self.label)
@@ -333,22 +354,27 @@ class Node:
             raise NotImplementedError()
         return f'({self.first_argument.get_formula()}) {op} ({self.second_argument.get_formula()})'
 
+    # creates a literal node
     @staticmethod
     def literal(label):
         return Node(NodeType.LITERAL, None, None, label)
 
+    # creates a literal node representing true
     @staticmethod
     def true(model):
         return Node.literal(model.true_index)
 
+    # creates a literal node representing false
     @staticmethod
     def false(model):
         return Node.literal(model.false_index)
 
+    # returns a literal node list representing positive and negative true and false constants
     @staticmethod
     def get_constants(model):
         return [Node.true(model), Node.false(model), Node.true(model).get_negated_literal_copy(), Node.false(model).get_negated_literal_copy()]
 
+    # creates an and node
     @staticmethod
     def and_formula(*arguments):
         if len(arguments) == 1:
@@ -360,6 +386,7 @@ class Node:
                 ret = Node.and_formula(ret, argument)
             return ret
 
+    # creates an or node
     @staticmethod
     def or_formula(*arguments):
         if len(arguments) == 1:
@@ -371,6 +398,7 @@ class Node:
                 ret = Node.or_formula(ret, argument)
             return ret
 
+    # creates an equal node
     @staticmethod
     def equal(*arguments):
         assert len(arguments) >= 2
@@ -379,6 +407,7 @@ class Node:
             ret = Node.equal(ret, argument)
         return ret
 
+    # creates a not equal node
     @staticmethod
     def not_equal(*arguments):
         assert len(arguments) >= 2

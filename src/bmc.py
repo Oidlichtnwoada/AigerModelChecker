@@ -5,6 +5,7 @@ from aiger_parser import Parser, Node
 from dimacs_generator import Generator
 
 
+# definition of the bmc object which executes the checking routines
 class BoundedModelChecker:
     def __init__(self, filename, bound, interpolation, debug=False):
         with open(filename) as file:
@@ -13,6 +14,7 @@ class BoundedModelChecker:
         self.interpolation = interpolation
         self.debug = debug
 
+    # start the bmc in interpolation or bounded model checking mode
     def start(self):
         if self.interpolation:
             if self.debug:
@@ -21,6 +23,7 @@ class BoundedModelChecker:
         else:
             self.start_bmc(self.bound, out=True)
 
+    # start the bmc routine and print if the model is save for the current bound
     def start_bmc(self, bound, out=False):
         parser = Parser(self.aiger, bound)
         model = parser.parse()
@@ -36,13 +39,14 @@ class BoundedModelChecker:
                 print('FAIL')
             return False
 
+    # start the interpolation routine and print if the model is save
     def start_interpolation(self, out=False):
+        # start with small bound
         current_bound = 1
-        # check for increasing bounds
         while True:
-            # check if model is safe within current bound
+            # check if model is safe within the current bound
             if self.start_bmc(current_bound):
-                # if the model is safe in the current bound, try computing a converging interpolant
+                # if the model is safe within the current bound then create relevant formulas
                 parser = Parser(self.aiger, current_bound)
                 model = parser.parse()
                 generator = Generator(model, current_bound)
@@ -53,9 +57,8 @@ class BoundedModelChecker:
                 second_transition_formula = generator.transition(1, current_bound - 1)
                 safety_formula = generator.safety(current_bound, current_bound)
                 current_interpolant = Node.false(model)
-                # try computing the interpolant iteratively
                 while True:
-                    # build current formula for computing the interpolant
+                    # build the two clause sets and compute the interpolant if possible
                     first_formula = Node.and_formula(first_equivalences_formula, initial_formula, first_transition_formula)
                     first_clauses = generator.generate_clauses(first_formula)
                     second_formula = Node.and_formula(second_equivalences_formula, safety_formula, second_transition_formula)
@@ -63,7 +66,7 @@ class BoundedModelChecker:
                     generator.build_dimacs(first_clauses.union(second_clauses))
                     output = run(['../minisat_proof/minisat_proof', '-c', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('utf-8')
                     if 'UNSATISFIABLE' in output:
-                        # compute interpolant from unsatisfiability proof
+                        # compute interpolant from the unsatisfiability proof
                         proof_tree = generator.generate_proof_tree(output)
                         setrecursionlimit(len(proof_tree))
                         next_interpolant = generator.compute_interpolant(first_clauses, second_clauses, proof_tree)
@@ -79,11 +82,11 @@ class BoundedModelChecker:
                                 print('OK')
                             return True
                         else:
-                            # interpolant added new information to the initial state, compute new interpolant
+                            # interpolant added new information to the initial state - compute new interpolant
                             initial_formula = Node.or_formula(initial_formula, next_interpolant)
                             current_interpolant = next_interpolant
                     else:
-                        # possible satisfiability due to overapproximation of reachable states in the interpolant, increase bound
+                        # possible satisfiability due to an overapproximation of reachable states in the interpolant - increase bound and try again
                         break
             else:
                 # report FAIL if the model is not safe within the current bound

@@ -3,7 +3,7 @@ from collections import deque
 from dimacs_generator import Node
 
 
-# structure for the model object which is used to create the formula
+# definition the model object which is filled by the aiger file
 class Model:
     def __init__(self):
         self.maximum_variable_index = 0
@@ -20,22 +20,24 @@ class Model:
         self.and_gates = {}
 
 
+# definition the parser object which fills the model object
 class Parser:
     def __init__(self, aiger, bound):
         self.aiger = aiger
         self.bound = bound
 
-    # file is in right structure because it was processed with aigtoaig
+    # return a parsed deque from the input file content
     def preprocess(self):
         # remove string 'aig' from the input file to allow later conversion to integers
         self.aiger = self.aiger.replace('aag', '')
         # find and remove an optional comment section
         comment_section_start_index = self.aiger.find('c\n')
         self.aiger = self.aiger if comment_section_start_index < 0 else self.aiger[:comment_section_start_index]
-        # return a deque of lists of integers for every line in the input file and filter out an optional symbol table
+        # create a parsed deque
         return deque([list(map(int, x.strip().split(' '))) for x in self.aiger.strip().split('\n') if
                       not x.strip().startswith(('i', 'l', 'o'))])
 
+    # return a model filled by the contents of the parsed deque
     def parse(self):
         # preprocess the input file to a deque
         lines = self.preprocess()
@@ -50,7 +52,7 @@ class Parser:
         model.number_of_and_gates = header[4]
         # set a start index for the labelling of nodes
         model.label_running_index = model.maximum_variable_index * (self.bound + 1)
-        # set the the indices for the two constants
+        # set the indices for the two boolean constants
         model.label_running_index += 1
         model.false_index = model.label_running_index
         model.label_running_index += 1
@@ -74,7 +76,7 @@ class Parser:
                 (self.literal_object(current_line[1], model), self.literal_object(current_line[2], model))
         return model
 
-    # convert a single literal integer to a literal object
+    # convert a single aiger literal integer to a dimacs literal object
     @staticmethod
     def literal_object(literal, model):
         if literal == 0:
