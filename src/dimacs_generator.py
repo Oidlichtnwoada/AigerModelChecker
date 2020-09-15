@@ -16,7 +16,7 @@ class Generator:
 
     def generate_bounded_model_checking_dimacs(self):
         # build syntax tree of formula to check
-        formula = Node.And(self.equivalences(), self.initial(), self.transition(), self.safety())
+        formula = Node.and_formula(self.equivalences(), self.initial(), self.transition(), self.safety())
         # generate a clause set
         clauses = self.generate_clauses(formula)
         # write the clause set in dimacs style to a file
@@ -30,20 +30,20 @@ class Generator:
             end = self.bound
         equivalences = Node.true(self.model)
         for out, (inp_0, inp_1) in self.model.and_gates.items():
-            equivalence = Node.Equal(out.get_copy(), Node.And(inp_0.get_copy(), inp_1.get_copy()))
-            equivalences = Node.And(equivalences, equivalence)
+            equivalence = Node.equal(out.get_copy(), Node.and_formula(inp_0.get_copy(), inp_1.get_copy()))
+            equivalences = Node.and_formula(equivalences, equivalence)
         all_equivalences = Node.true(self.model)
         for i in range(start, end + 1):
             current_step_equivalences = equivalences.get_copy()
             self.increment_steps(current_step_equivalences, i)
-            all_equivalences = Node.And(all_equivalences, current_step_equivalences)
+            all_equivalences = Node.and_formula(all_equivalences, current_step_equivalences)
         return all_equivalences
 
     # build up the initial state formula to guarantee that all latches are initialized to zero
     def initial(self):
         formula = Node.true(self.model)
         for out in self.model.latches:
-            formula = Node.And(formula, out.get_negated_literal_copy())
+            formula = Node.and_formula(formula, out.get_negated_literal_copy())
         return formula
 
     # build up the safety formula which is satisfiable if a bad state has been reached
@@ -57,7 +57,7 @@ class Generator:
         for i in range(start, end + 1):
             current_step_bad_state_detector = bad_state_detector.get_copy()
             self.increment_steps(current_step_bad_state_detector, i)
-            formula = Node.Or(formula, current_step_bad_state_detector)
+            formula = Node.or_formula(formula, current_step_bad_state_detector)
         return formula
 
     # build up the transition formula
@@ -71,7 +71,7 @@ class Generator:
         for i in range(start, end + 1):
             transition_step = transition_formula.get_copy()
             self.increment_steps(transition_step, i)
-            formula = Node.And(formula, transition_step)
+            formula = Node.and_formula(formula, transition_step)
         return formula
 
     # build up the transition step formula from step 0 to 1
@@ -81,8 +81,8 @@ class Generator:
             next_step_out = out.get_copy()
             self.increment_steps(next_step_out, 1)
             prev_step_in = self.model.latches[out].get_copy()
-            transition = Node.Equal(next_step_out, prev_step_in)
-            formula = Node.And(formula, transition)
+            transition = Node.equal(next_step_out, prev_step_in)
+            formula = Node.and_formula(formula, transition)
         return formula
 
     # increments the steps of literals in a formula
@@ -145,6 +145,8 @@ class Generator:
                 clauses.add(self.get_clause(label, first_argument, second_argument * -1))
                 clauses.add(self.get_clause(label, first_argument * -1, second_argument))
                 clauses.add(self.get_clause(label * -1, first_argument, second_argument))
+            else:
+                raise NotImplementedError()
             self.add_equivalences_to_clauses(formula.first_argument, clauses)
             self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
@@ -170,7 +172,7 @@ class Generator:
                 if len(relevant_literals) == 0:
                     label = Node.false(self.model)
                 else:
-                    label = Node.Or(*[Node.Literal(literal) for literal in relevant_literals])
+                    label = Node.or_formula(*[Node.literal(literal) for literal in relevant_literals])
                     self.increment_steps(label, -1)
             elif clause in second_clauses:
                 label = Node.true(self.model)
@@ -188,7 +190,7 @@ class Generator:
                     elif right_parent_label == Node.false(self.model):
                         label = left_parent_label
                     else:
-                        label = Node.Or(left_parent_label, right_parent_label)
+                        label = Node.or_formula(left_parent_label, right_parent_label)
                 else:
                     if left_parent_label == Node.false(self.model) or right_parent_label == Node.false(self.model):
                         label = Node.false(self.model)
@@ -197,7 +199,7 @@ class Generator:
                     elif right_parent_label == Node.true(self.model):
                         label = left_parent_label
                     else:
-                        label = Node.And(left_parent_label, right_parent_label)
+                        label = Node.and_formula(left_parent_label, right_parent_label)
             labels[clause] = label
 
     @staticmethod
@@ -264,19 +266,21 @@ class Node:
 
     def get_copy(self):
         if self.is_literal():
-            return Node.Literal(self.label)
+            return Node.literal(self.label)
         elif self.is_and():
-            return Node.And(self.first_argument.get_copy(), self.second_argument.get_copy())
+            return Node.and_formula(self.first_argument.get_copy(), self.second_argument.get_copy())
         elif self.is_or():
-            return Node.Or(self.first_argument.get_copy(), self.second_argument.get_copy())
+            return Node.or_formula(self.first_argument.get_copy(), self.second_argument.get_copy())
         elif self.is_equal():
-            return Node.Equal(self.first_argument.get_copy(), self.second_argument.get_copy())
+            return Node.equal(self.first_argument.get_copy(), self.second_argument.get_copy())
         elif self.is_not_equal():
-            return Node.NotEqual(self.first_argument.get_copy(), self.second_argument.get_copy())
+            return Node.not_equal(self.first_argument.get_copy(), self.second_argument.get_copy())
+        else:
+            raise NotImplementedError()
 
     def get_negated_literal_copy(self):
         if self.is_literal():
-            return Node.Literal(self.label * -1)
+            return Node.literal(self.label * -1)
 
     def is_literal(self):
         return self.node_type == NodeType.LITERAL
@@ -323,58 +327,60 @@ class Node:
             op = 'eq'
         elif self.is_not_equal():
             op = 'neq'
+        else:
+            raise NotImplementedError()
         return f'({self.first_argument.get_formula()}) {op} ({self.second_argument.get_formula()})'
 
     @staticmethod
-    def Literal(label):
+    def literal(label):
         return Node(NodeType.LITERAL, None, None, label)
 
     @staticmethod
     def true(model):
-        return Node.Literal(model.true_index)
+        return Node.literal(model.true_index)
 
     @staticmethod
     def false(model):
-        return Node.Literal(model.false_index)
+        return Node.literal(model.false_index)
 
     @staticmethod
     def get_constants(model):
         return [Node.true(model), Node.false(model), Node.true(model).get_negated_literal_copy(), Node.false(model).get_negated_literal_copy()]
 
     @staticmethod
-    def And(*arguments):
+    def and_formula(*arguments):
         if len(arguments) == 1:
             return arguments[0]
         else:
             assert len(arguments) >= 2
             ret = Node(NodeType.AND, arguments[0], arguments[1], 0)
             for argument in arguments[2:]:
-                ret = Node.And(ret, argument)
+                ret = Node.and_formula(ret, argument)
             return ret
 
     @staticmethod
-    def Or(*arguments):
+    def or_formula(*arguments):
         if len(arguments) == 1:
             return arguments[0]
         else:
             assert len(arguments) >= 2
             ret = Node(NodeType.OR, arguments[0], arguments[1], 0)
             for argument in arguments[2:]:
-                ret = Node.Or(ret, argument)
+                ret = Node.or_formula(ret, argument)
             return ret
 
     @staticmethod
-    def Equal(*arguments):
+    def equal(*arguments):
         assert len(arguments) >= 2
         ret = Node(NodeType.EQUAL, arguments[0], arguments[1], 0)
         for argument in arguments[2:]:
-            ret = Node.Equal(ret, argument)
+            ret = Node.equal(ret, argument)
         return ret
 
     @staticmethod
-    def NotEqual(*arguments):
+    def not_equal(*arguments):
         assert len(arguments) >= 2
         ret = Node(NodeType.NOT_EQUAL, arguments[0], arguments[1], 0)
         for argument in arguments[2:]:
-            ret = Node.NotEqual(ret, argument)
+            ret = Node.not_equal(ret, argument)
         return ret

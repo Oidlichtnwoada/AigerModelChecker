@@ -82,4 +82,4 @@ class Parser:
         elif literal == 1:
             return Node.true(model)
         else:
-            return Node.Literal((literal // 2) * (-1 if literal % 2 else 1))
+            return Node.literal((literal // 2) * (-1 if literal % 2 else 1))

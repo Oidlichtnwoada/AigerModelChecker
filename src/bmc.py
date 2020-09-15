@@ -56,9 +56,9 @@ class BoundedModelChecker:
                 # try computing the interpolant iteratively
                 while True:
                     # build current formula for computing the interpolant
-                    first_formula = Node.And(first_equivalences_formula, initial_formula, first_transition_formula)
+                    first_formula = Node.and_formula(first_equivalences_formula, initial_formula, first_transition_formula)
                     first_clauses = generator.generate_clauses(first_formula)
-                    second_formula = Node.And(second_equivalences_formula, safety_formula, second_transition_formula)
+                    second_formula = Node.and_formula(second_equivalences_formula, safety_formula, second_transition_formula)
                     second_clauses = generator.generate_clauses(second_formula)
                     generator.build_dimacs(first_clauses.union(second_clauses))
                     output = run(['../minisat_proof/minisat_proof', '-c', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
@@ -67,7 +67,7 @@ class BoundedModelChecker:
                         proof_tree = generator.generate_proof_tree(output)
                         setrecursionlimit(len(proof_tree))
                         next_interpolant = generator.compute_interpolant(first_clauses, second_clauses, proof_tree)
-                        interpolants_not_equal_formula = Node.NotEqual(current_interpolant, next_interpolant)
+                        interpolants_not_equal_formula = Node.not_equal(current_interpolant, next_interpolant)
                         if self.debug:
                             print(','.join([str(current_bound), str(len(proof_tree)), str(Generator.get_proof_tree_steps((), proof_tree)),
                                             str(next_interpolant.count_nodes_in_formula()), str(interpolants_not_equal_formula.count_nodes_in_formula())]))
@@ -80,7 +80,7 @@ class BoundedModelChecker:
                             return True
                         else:
                             # interpolant added new information to the initial state, compute new interpolant
-                            initial_formula = Node.Or(initial_formula, next_interpolant)
+                            initial_formula = Node.or_formula(initial_formula, next_interpolant)
                             current_interpolant = next_interpolant
                     else:
                         # possible satisfiability due to overapproximation of reachable states in the interpolant, increase bound
