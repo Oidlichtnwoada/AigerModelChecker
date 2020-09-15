@@ -104,7 +104,8 @@ class Generator:
         self.add_labels(formula)
         # force SAT solver to pick the two constants to True and False
         clauses = {(formula.label,), (self.model.true_index,), (-self.model.false_index,)}
-        self.add_equivalences_to_clauses(formula, clauses)
+        processed_formulas = set()
+        self.add_equivalences_to_clauses(formula, clauses, processed_formulas)
         return clauses
 
     # generate the dimacs file
@@ -122,10 +123,9 @@ class Generator:
             self.add_labels(formula.second_argument)
 
     # generate clauses for all the equivalences used in the Tseitin transformation
-    def add_equivalences_to_clauses(self, formula, clauses):
-        if not formula.is_literal() and formula.label != 0:
+    def add_equivalences_to_clauses(self, formula, clauses, processed_formulas):
+        if not formula.is_literal() and formula not in processed_formulas:
             label = formula.label
-            formula.label = 0
             first_argument = formula.first_argument.label
             second_argument = formula.second_argument.label
             if formula.is_and():
@@ -148,8 +148,9 @@ class Generator:
                 clauses.add(self.get_clause(label * -1, first_argument, second_argument))
             else:
                 raise NotImplementedError()
-            self.add_equivalences_to_clauses(formula.first_argument, clauses)
-            self.add_equivalences_to_clauses(formula.second_argument, clauses)
+            processed_formulas.add(formula)
+            self.add_equivalences_to_clauses(formula.first_argument, clauses, processed_formulas)
+            self.add_equivalences_to_clauses(formula.second_argument, clauses, processed_formulas)
 
     # compute interpolant out of two clause sets and a proof tree
     def compute_interpolant(self, first_clauses, second_clauses, proof_tree):

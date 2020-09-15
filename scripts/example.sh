@@ -7,4 +7,3 @@
 ./run-part1.sh ../models/texas.two_proc^1.E.aag 14
 ./run-part2.sh ../models/nusmv.syncarb5^2.B.aag
 ./run-part2.sh ../models/vis.emodel.E.aag
-./run-part2.sh ../models/cmu.gigamax.B.aag
