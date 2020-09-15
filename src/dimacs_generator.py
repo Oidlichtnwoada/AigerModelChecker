@@ -128,30 +128,28 @@ class Generator:
             first_argument = formula.first_argument.label
             second_argument = formula.second_argument.label
             if formula.is_and():
-                clauses.add(tuple({label, first_argument * -1, second_argument * -1}))
-                clauses.add(tuple({label * -1, first_argument}))
-                clauses.add(tuple({label * -1, second_argument}))
+                clauses.add(self.get_clause(label, first_argument * -1, second_argument * -1))
+                clauses.add(self.get_clause(label * -1, first_argument))
+                clauses.add(self.get_clause(label * -1, second_argument))
             elif formula.is_or():
-                clauses.add(tuple({label * -1, first_argument, second_argument}))
-                clauses.add(tuple({label, first_argument * -1}))
-                clauses.add(tuple({label, second_argument * -1}))
+                clauses.add(self.get_clause(label * -1, first_argument, second_argument))
+                clauses.add(self.get_clause(label, first_argument * -1))
+                clauses.add(self.get_clause(label, second_argument * -1))
             elif formula.is_equal():
-                clauses.add(tuple({label, first_argument, second_argument}))
-                clauses.add(tuple({label * -1, first_argument * -1, second_argument}))
-                clauses.add(tuple({label * -1, first_argument, second_argument * -1}))
-                clauses.add(tuple({label, first_argument * -1, second_argument * -1}))
+                clauses.add(self.get_clause(label, first_argument, second_argument))
+                clauses.add(self.get_clause(label * -1, first_argument * -1, second_argument))
+                clauses.add(self.get_clause(label * -1, first_argument, second_argument * -1))
+                clauses.add(self.get_clause(label, first_argument * -1, second_argument * -1))
             elif formula.is_not_equal():
-                clauses.add(tuple({label * -1, first_argument * -1, second_argument * -1}))
-                clauses.add(tuple({label, first_argument, second_argument * -1}))
-                clauses.add(tuple({label, first_argument * -1, second_argument}))
-                clauses.add(tuple({label * -1, first_argument, second_argument}))
+                clauses.add(self.get_clause(label * -1, first_argument * -1, second_argument * -1))
+                clauses.add(self.get_clause(label, first_argument, second_argument * -1))
+                clauses.add(self.get_clause(label, first_argument * -1, second_argument))
+                clauses.add(self.get_clause(label * -1, first_argument, second_argument))
             self.add_equivalences_to_clauses(formula.first_argument, clauses)
             self.add_equivalences_to_clauses(formula.second_argument, clauses)
 
     # compute interpolant out of two clause sets and a proof tree
     def compute_interpolant(self, first_clauses, second_clauses, proof_tree):
-        first_clauses = set([tuple(sorted(x)) for x in first_clauses])
-        second_clauses = set([tuple(sorted(x)) for x in second_clauses])
         first_variables = set()
         for clause in first_clauses:
             for literal in clause:
@@ -161,59 +159,50 @@ class Generator:
             for literal in clause:
                 second_variables.add(abs(literal))
         labels = {}
-        self.fill_labels((), first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
+        self.compute_labels((), first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
         return labels[()]
 
     # compute a label of some clause in the proof_tree
-    def fill_labels(self, root, first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels):
-        first_stack = []
-        second_stack = []
-        first_stack.append(root)
-        while first_stack:
-            current = first_stack.pop()
-            second_stack.append(current)
-            if len(proof_tree[current]) > 0:
-                first_stack.append(proof_tree[current][0])
-                first_stack.append(proof_tree[current][2])
-        while second_stack:
-            clause = second_stack.pop()
-            if clause not in labels:
-                self.compute_label(first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels, clause)
-
-    # compute a label of some clause in the proof_tree
-    def compute_label(self, first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels, clause):
-        if clause in first_clauses:
-            relevant_literals = [x for x in clause if abs(x) in second_variables]
-            if len(relevant_literals) == 0:
-                label = Node.false(self.model)
-            else:
-                label = Node.Or(*[Node.Literal(literal) for literal in relevant_literals])
-                self.increment_steps(label, -1)
-        elif clause in second_clauses:
-            label = Node.true(self.model)
-        else:
-            resolved_on_variable = proof_tree[clause][1]
-            left_parent_label = labels[proof_tree[clause][0]]
-            right_parent_label = labels[proof_tree[clause][2]]
-            if resolved_on_variable in first_variables and resolved_on_variable not in second_variables:
-                if left_parent_label == Node.true(self.model) or right_parent_label == Node.true(self.model):
-                    label = Node.true(self.model)
-                elif left_parent_label == Node.false(self.model):
-                    label = right_parent_label
-                elif right_parent_label == Node.false(self.model):
-                    label = left_parent_label
-                else:
-                    label = Node.Or(left_parent_label, right_parent_label)
-            else:
-                if left_parent_label == Node.false(self.model) or right_parent_label == Node.false(self.model):
+    def compute_labels(self, clause, first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels):
+        if clause not in labels:
+            if clause in first_clauses:
+                relevant_literals = [x for x in clause if abs(x) in second_variables]
+                if len(relevant_literals) == 0:
                     label = Node.false(self.model)
-                elif left_parent_label == Node.true(self.model):
-                    label = right_parent_label
-                elif right_parent_label == Node.true(self.model):
-                    label = left_parent_label
                 else:
-                    label = Node.And(left_parent_label, right_parent_label)
-        labels[clause] = label
+                    label = Node.Or(*[Node.Literal(literal) for literal in relevant_literals])
+                    self.increment_steps(label, -1)
+            elif clause in second_clauses:
+                label = Node.true(self.model)
+            else:
+                resolved_on_variable = proof_tree[clause][1]
+                self.compute_labels(proof_tree[clause][0], first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
+                left_parent_label = labels[proof_tree[clause][0]]
+                self.compute_labels(proof_tree[clause][2], first_clauses, second_clauses, first_variables, second_variables, proof_tree, labels)
+                right_parent_label = labels[proof_tree[clause][2]]
+                if resolved_on_variable in first_variables and resolved_on_variable not in second_variables:
+                    if left_parent_label == Node.true(self.model) or right_parent_label == Node.true(self.model):
+                        label = Node.true(self.model)
+                    elif left_parent_label == Node.false(self.model):
+                        label = right_parent_label
+                    elif right_parent_label == Node.false(self.model):
+                        label = left_parent_label
+                    else:
+                        label = Node.Or(left_parent_label, right_parent_label)
+                else:
+                    if left_parent_label == Node.false(self.model) or right_parent_label == Node.false(self.model):
+                        label = Node.false(self.model)
+                    elif left_parent_label == Node.true(self.model):
+                        label = right_parent_label
+                    elif right_parent_label == Node.true(self.model):
+                        label = left_parent_label
+                    else:
+                        label = Node.And(left_parent_label, right_parent_label)
+            labels[clause] = label
+
+    @staticmethod
+    def get_clause(*labels):
+        return tuple(sorted(set(labels)))
 
     @staticmethod
     def get_proof_tree_size(clause, proof_tree):
