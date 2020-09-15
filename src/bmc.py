@@ -93,4 +93,4 @@ class BoundedModelChecker:
             current_bound += 1
 
 
-BoundedModelChecker(argv[1], int(argv[2]), bool(int(argv[3])), debug=True).start()
+BoundedModelChecker(argv[1], int(argv[2]), bool(int(argv[3])), debug=bool(int(argv[4]))).start()
