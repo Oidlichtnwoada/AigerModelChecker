@@ -232,14 +232,14 @@ class Generator:
         for line in output.split('\n'):
             number = int(line[:line.find(':')].strip())
             if 'ROOT' in line:
-                clause = tuple(sorted(map(int, line[line.find('ROOT') + len('ROOT'):].strip().split(' '))))
+                clause = Generator.get_clause(*tuple(map(int, line[line.find('ROOT') + len('ROOT'):].strip().split(' '))))
                 path = ()
             else:
-                clause = tuple(sorted(map(int, line[line.find('=>') + len('=>'):].strip().split(' '))))
+                clause = Generator.get_clause(*tuple(map(int, line[line.find('=>') + len('=>'):].strip().split(' '))))
                 path = tuple(map(int, line[line.find('CHAIN') + len('CHAIN'):line.find('=>')].replace('[', '').replace(']', '').strip().split(' ')))
                 while len(path) > 3:
                     running_clause_index += 1
-                    derived_clause = tuple(sorted(list(set([x for x in clauses[path[0]] + clauses[path[2]] if abs(x) != path[1]]))))
+                    derived_clause = Generator.get_clause(*[x for x in clauses[path[0]] + clauses[path[2]] if abs(x) != path[1]])
                     assert running_clause_index not in clauses
                     clauses[running_clause_index] = derived_clause
                     if derived_clause not in proof_tree:
