@@ -205,11 +205,12 @@ class Generator:
         return tuple(sorted(set(labels)))
 
     @staticmethod
-    def get_proof_tree_size(clause, proof_tree):
+    def get_proof_tree_steps(clause, proof_tree):
         if len(proof_tree[clause]) == 0:
-            return 1
+            return 0
         else:
-            return 1 + Generator.get_proof_tree_size(proof_tree[clause][0], proof_tree) + Generator.get_proof_tree_size(proof_tree[clause][2], proof_tree)
+            return 1 + Generator.get_proof_tree_steps(proof_tree[clause][0], proof_tree) + \
+                   Generator.get_proof_tree_steps(proof_tree[clause][2], proof_tree)
 
     # generate a proof tree out of SAT solver output
     @staticmethod

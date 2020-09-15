@@ -1,5 +1,5 @@
 from subprocess import run, PIPE
-from sys import argv
+from sys import argv, setrecursionlimit
 
 from aiger_parser import Parser, Node
 from dimacs_generator import Generator
@@ -15,6 +15,8 @@ class BoundedModelChecker:
 
     def start(self):
         if self.interpolation:
+            if self.debug:
+                print(','.join(['bound', 'proof_tree_size', 'proof_tree_steps', 'interpolant_size', 'interpolants_equal_size']))
             self.start_interpolation(out=True)
         else:
             self.start_bmc(self.bound, out=True)
@@ -63,11 +65,12 @@ class BoundedModelChecker:
                     if 'UNSATISFIABLE' in output:
                         # compute interpolant from unsatisfiability proof
                         proof_tree = generator.generate_proof_tree(output)
+                        setrecursionlimit(len(proof_tree))
                         next_interpolant = generator.compute_interpolant(first_clauses, second_clauses, proof_tree)
                         interpolants_not_equal_formula = Node.NotEqual(current_interpolant, next_interpolant)
                         if self.debug:
-                            print(f'current bound: {current_bound} proof tree size: {Generator.get_proof_tree_size((), proof_tree)} ' +
-                                  f'interpolant size: {next_interpolant.count_nodes_in_formula()} interpolant equal check size: {interpolants_not_equal_formula.count_nodes_in_formula()}')
+                            print(','.join([str(current_bound), str(len(proof_tree)), str(Generator.get_proof_tree_steps((), proof_tree)),
+                                            str(next_interpolant.count_nodes_in_formula()), str(interpolants_not_equal_formula.count_nodes_in_formula())]))
                         generator.build_dimacs(generator.generate_clauses(interpolants_not_equal_formula))
                         output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
                         if 'UNSATISFIABLE' in output:
