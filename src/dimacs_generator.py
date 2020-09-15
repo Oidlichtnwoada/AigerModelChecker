@@ -115,7 +115,7 @@ class Generator:
 
     # label all internal nodes in the syntax tree of the formula
     def add_labels(self, formula):
-        if not formula.is_literal():
+        if not formula.is_literal() and formula.label == 0:
             self.model.label_running_index += 1
             formula.label = self.model.label_running_index
             self.add_labels(formula.first_argument)
