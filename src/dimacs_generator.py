@@ -123,8 +123,9 @@ class Generator:
 
     # generate clauses for all the equivalences used in the Tseitin transformation
     def add_equivalences_to_clauses(self, formula, clauses):
-        if not formula.is_literal():
+        if not formula.is_literal() and formula.label != 0:
             label = formula.label
+            formula.label = 0
             first_argument = formula.first_argument.label
             second_argument = formula.second_argument.label
             if formula.is_and():
