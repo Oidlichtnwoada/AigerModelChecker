@@ -26,7 +26,7 @@ class BoundedModelChecker:
         model = parser.parse()
         generator = Generator(model, bound)
         generator.generate_bounded_model_checking_dimacs()
-        output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
+        output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('utf-8')
         if 'UNSATISFIABLE' in output:
             if out:
                 print('OK')
@@ -61,7 +61,7 @@ class BoundedModelChecker:
                     second_formula = Node.and_formula(second_equivalences_formula, safety_formula, second_transition_formula)
                     second_clauses = generator.generate_clauses(second_formula)
                     generator.build_dimacs(first_clauses.union(second_clauses))
-                    output = run(['../minisat_proof/minisat_proof', '-c', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
+                    output = run(['../minisat_proof/minisat_proof', '-c', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('utf-8')
                     if 'UNSATISFIABLE' in output:
                         # compute interpolant from unsatisfiability proof
                         proof_tree = generator.generate_proof_tree(output)
@@ -72,7 +72,7 @@ class BoundedModelChecker:
                             print(','.join([str(current_bound), str(len(proof_tree)), str(Generator.get_proof_tree_steps((), proof_tree)),
                                             str(next_interpolant.count_nodes_in_formula()), str(interpolants_not_equal_formula.count_nodes_in_formula())]))
                         generator.build_dimacs(generator.generate_clauses(interpolants_not_equal_formula))
-                        output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('ascii')
+                        output = run(['../minisat/core/minisat_core', '../dimacs/dimacs.txt'], stdout=PIPE).stdout.decode('utf-8')
                         if 'UNSATISFIABLE' in output:
                             # interpolant computation has converged
                             if out:
