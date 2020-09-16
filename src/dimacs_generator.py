@@ -131,8 +131,11 @@ class Generator:
     def add_equivalences_to_clauses(self, formula, clauses, processed_formulas):
         if not formula.is_literal() and formula not in processed_formulas:
             label = formula.label
+            assert label != 0
             first_argument = formula.first_argument.label
+            assert first_argument != 0
             second_argument = formula.second_argument.label
+            assert second_argument != 0
             if formula.is_and():
                 clauses.add(self.get_clause(label, first_argument * -1, second_argument * -1))
                 clauses.add(self.get_clause(label * -1, first_argument))
