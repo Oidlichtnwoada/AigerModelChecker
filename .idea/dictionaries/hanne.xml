@@ -4,9 +4,13 @@
       <w>aiger</w>
       <w>aigtoaig</w>
       <w>dimacs</w>
+      <w>emodel</w>
+      <w>gigamax</w>
+      <w>ifetch</w>
       <w>interpolant</w>
       <w>interpolants</w>
       <w>minisat</w>
+      <w>syncarb</w>
       <w>tseitin</w>
       <w>unallowed</w>
     </words>

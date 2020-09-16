@@ -21,6 +21,7 @@ class BoundedModelChecker:
                 print(','.join(['bound', 'proof_tree_size', 'proof_tree_steps', 'interpolant_size', 'interpolants_equal_size']))
             self.start_interpolation(out=True)
         else:
+            assert self.bound >= 0
             self.start_bmc(self.bound, out=True)
 
     # start the bmc routine and print if the model is save for the current bound
