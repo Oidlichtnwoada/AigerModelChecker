@@ -1,5 +1,5 @@
 from subprocess import run, PIPE
-from sys import argv, setrecursionlimit
+from sys import argv
 
 from aiger_parser import Parser, Node
 from dimacs_generator import Generator
@@ -68,7 +68,6 @@ class BoundedModelChecker:
                     if 'UNSATISFIABLE' in output:
                         # compute interpolant from the unsatisfiability proof
                         proof_tree = generator.generate_proof_tree(output)
-                        setrecursionlimit(len(proof_tree))
                         next_interpolant = generator.compute_interpolant(first_clauses, second_clauses, proof_tree)
                         interpolants_not_equal_formula = Node.not_equal(current_interpolant, next_interpolant)
                         if self.debug:
@@ -87,13 +86,13 @@ class BoundedModelChecker:
                             current_interpolant = next_interpolant
                     else:
                         # possible satisfiability due to an overapproximation of reachable states in the interpolant - increase bound and try again
+                        current_bound += 1
                         break
             else:
                 # report FAIL if the model is not safe within the current bound
                 if out:
                     print('FAIL')
                 return False
-            current_bound += 1
 
 
 BoundedModelChecker(argv[1], int(argv[2]), bool(int(argv[3])), debug=bool(int(argv[4]))).start()
