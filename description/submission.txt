@@ -1,0 +1,1 @@
+execute "git clone https://github.com/Oidlichtnwoada/AigerModelChecker.git" and then follow README.md
